@@ -23,6 +23,22 @@ from calibre.utils.config import JSONConfig
 
 BASE_URL = 'https://www.babelio.com'
 
+############ lrp
+import datetime
+from bs4 import BeautifulSoup as BS
+from threading import Thread
+import lxml
+
+from calibre.ebooks.metadata.book.base import Metadata
+from calibre.ebooks.metadata import check_isbn
+from calibre.library.comments import sanitize_comments_html
+from calibre.utils.cleantext import clean_ascii_chars
+from calibre.utils.icu import lower
+
+from calibre_plugins.babelio import ret_soup, verify_isbn
+# from calibre_plugins.babelio import noosfere
+############ lrp
+
 class Worker(Thread):
 
     def __init__(self, url, result_queue, browser, log, relevance, plugin, timeout=20):
@@ -32,25 +48,42 @@ class Worker(Thread):
         self.log, self.timeout = log, timeout
         self.relevance, self.plugin = relevance, plugin
         self.browser = browser.clone_browser()
-        self.cover_url = self.isbn = self.bab_id = None
+        self.cover_url = self.isbn = self.bbl_id = None
+        self.who = "[worker "+str(relevance)+"]"
         self.browser.set_handle_equiv(True)
         self.browser.set_handle_gzip(True)
         self.browser.set_handle_redirect(True)
         self.browser.set_handle_referer(True)
         self.browser.set_handle_robots(False)
 
+        debug = 1
+        self.log.info("\nIn worker")
+        if debug:
+            self.log.info(self.who,"url            : ", self.url)
+            self.log.info(self.who,"self.relevance : ", self.relevance)
+            self.log.info(self.who,"self.plugin    : ", self.plugin)
+            self.log.info(self.who,"plugin         : ", self.plugin)
+
     def run(self):
+        '''
+        this control the rest of the worker process
+        '''
         try:
             self.get_details()
         except:
             self.log.exception('get_details failed for url: %r' % self.url)
 
     def get_details(self):
+        '''
+        sets details this code uploads url then calls parse_details
+        '''
+        debug = 1
+        if debug: self.log.info(self.who,"\n in get_details")
         try:
-            self.bab_id = self.parse_bab_id(self.url)
+            self.bbl_id = self.parse_bbl_id(self.url)
         except:
-            self.log.exception('Erreur en cherchant l\'id babelio dans : %r' % self.url)
-            self.bab_id = None
+            self.log.exception("Erreur en cherchant l'id babelio dans : %r" % self.url)
+            self.bbl_id = None
         try:
             self.log.info('Url Babelio: %r' % self.url)
             policy = mechanize.DefaultCookiePolicy(rfc2965=True)
@@ -64,13 +97,16 @@ class Worker(Thread):
             attr = getattr(e, 'args', [None])
             attr = attr if attr else [None]
             if isinstance(attr[0], socket.timeout):
-                msg = 'Délai d\'attente dépassé. Réessayez.'.encode('latin-1')
+                msg = 'Dï¿½lai d\'attente dï¿½passï¿½. Rï¿½essayez.'.encode('latin-1')
                 self.log.error(msg)
             else:
-                msg = 'Impossible de lancer la requête : %r'.encode('latin-1') % self.url
+                msg = 'Impossible de lancer la requï¿½te : %r'.encode('latin-1') % self.url
                 self.log.exception(msg)
             return
 
+        # if debug:                                     # may be long
+        #     soup = BS(raw, "html5lib")
+        #     self.log.info(self.who,"get details raw prettyfied :\n", soup.prettify())
         raw = raw.decode('latin-1', errors='replace')
 
         if '<title>404 - ' in raw:
@@ -104,7 +140,7 @@ class Worker(Thread):
             # return
 
         mi = Metadata(title, authors)
-        mi.set_identifier('babelio', self.bab_id)
+        mi.set_identifier('babelio', self.bbl_id)
         try:
             isbn, publisher, pubdate = self.parse_meta(root)
             if isbn:
@@ -114,7 +150,7 @@ class Worker(Thread):
             if pubdate :
                 self.pubdate = mi.pubdate = pubdate
         except:
-            self.log.exception('Erreur en cherchant ISBN, éditeur et date de publication dans : %r' % self.url)
+            self.log.exception('Erreur en cherchant ISBN, ï¿½diteur et date de publication dans : %r' % self.url)
 
         try:
             mi.rating = self.parse_rating(root)
@@ -126,7 +162,7 @@ class Worker(Thread):
             if mi.comments == '' :
                 self.log.info('Pas de commentaires pour ce livre')
         except:
-            self.log.exception('Erreur en cherchant le résumé : %r' % self.url)
+            self.log.exception('Erreur en cherchant le rï¿½sumï¿½ : %r' % self.url)
 
         if JSONConfig('plugins/Babelio').get('cover', False) == True:
             try:
@@ -135,7 +171,7 @@ class Worker(Thread):
                 self.log.exception('Erreur en cherchant la couverture dans : %r' % self.url)
 
         else :
-            self.log.info('Téléchargement de la couverture désactivé')
+            self.log.info('Tï¿½lï¿½chargement de la couverture dï¿½sactivï¿½')
             self.cover_url = None
         mi.has_cover = bool(self.cover_url)
 
@@ -144,19 +180,19 @@ class Worker(Thread):
             if tags:
                 mi.tags = tags
         except:
-            self.log.exception('Erreur en cherchant les étiquettes dans : %r' % self.url)
-        if self.bab_id:
+            self.log.exception('Erreur en cherchant les ï¿½tiquettes dans : %r' % self.url)
+        if self.bbl_id:
             if self.isbn:
-                self.plugin.cache_isbn_to_identifier(self.isbn, self.bab_id)
+                self.plugin.cache_isbn_to_identifier(self.isbn, self.bbl_id)
             if self.cover_url:
-                self.plugin.cache_identifier_to_cover_url(self.bab_id, self.cover_url)
+                self.plugin.cache_identifier_to_cover_url(self.bbl_id, self.cover_url)
         mi.language = 'fr'
         mi.authors = fixauthors(mi.authors)
         mi.tags = list(map(fixcase, mi.tags))
         mi.isbn = check_isbn(mi.isbn)
         self.result_queue.put(mi)
 
-    def parse_bab_id(self, url):
+    def parse_bbl_id(self, url):
         return re.search(r'/(\d+)', url).groups(0)[0]
 
     def parse_title(self, root):
@@ -264,8 +300,8 @@ class Worker(Thread):
         if len(date_text) > 4:
             text_parts = date_text[:len(date_text) - 5].partition(' ')
             month_name = text_parts[0]
-            month_dict = {"janvier":1, "février":2, "mars":3, "avril":4, "mai":5, "juin":6,
-                "juillet":7, "août":8, "Septembre":9, "octobre":10, "novembre":11, "décembre":12}
+            month_dict = {"janvier":1, "fï¿½vrier":2, "mars":3, "avril":4, "mai":5, "juin":6,
+                "juillet":7, "aoï¿½t":8, "Septembre":9, "octobre":10, "novembre":11, "dï¿½cembre":12}
             month = month_dict.get(month_name, 2)
             if len(text_parts[2]) > 0:
                 day = int(re.match('([0-9]+)', text_parts[2]).groups(0)[0])

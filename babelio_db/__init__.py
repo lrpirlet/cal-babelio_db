@@ -12,6 +12,8 @@
 # TOUT les outputs (logs...) et les inputs (what is read in the site...) sont en utf8...
 # les multiples conversions rendent le code confus
 #
+# un seul matches meme si deux livres repoondent à la recherche
+#
 # il est besoin de lancer des POST request pour chercher la suite du resumé (ref: "voir plus" dans certains livres)
 #
 # la compatibilité avec python 2.x me semble obsolete et perturbant.
@@ -45,9 +47,9 @@ from calibre.ebooks.metadata.sources.base import Source
 from calibre.utils.cleantext import clean_ascii_chars
 from calibre.utils.config import JSONConfig
 
-################# lrp
+################# lrp start
 __license__   = 'GPL v3'
-__copyright__ = '2021, Louis Richard Pirlet'
+__copyright__ = '2021, Louis Richard Pirlet using VdF work as a base'
 __docformat__ = 'restructuredtext en'           # whatever that means???
 
 # those are python code that are directly available in calibre closed environment (test import... using calibre-debug)
@@ -73,6 +75,7 @@ from calibre.utils.localization import get_udc
 def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
     '''
     this is an attempt to keep going when the connection to the site fails for no (understandable) reason
+    "return (sr, sr.geturl())" with sr.geturl() the true url address of sr (the content).
     '''
     debug=dbg_lvl & 4
     if debug:
@@ -104,7 +107,9 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
 
 def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
     '''
-    Function to return the soup for beautifullsoup to work on.
+    Function to return the soup for beautifullsoup to work on. with:
+    br is browser, url is request address, who is an aid to identify the caller
+    rkt list of arguments for a POST request, if rkt is None, the request is GET
     '''
     debug=dbg_lvl & 4
     if debug:
@@ -124,7 +129,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
   # Maybe I should have tried earlier the working solution as the emitting node is MS
   # (Thanks MS!!! and I mean it as I am running W10.. :-) but hell, proprietary standard is not standard)...
   # It decode correctly to utf_8 with windows-1252 forced as from_encoding
-    from_encoding="windows-1252"
+  # from_encoding="windows-1252"
 
     log.info(who, "Accessing url : ", url)
     if rkt :
@@ -133,11 +138,11 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
         if debug: log.info(who, "formated parameters : ", rkt)
 
     resp = urlopen_with_retry(log, dbg_lvl, br, url, rkt, who)
-    if debug: log.info(who,"...et from_encoding, c'est : ", from_encoding)
+    # if debug: log.info(who,"...et from_encoding, c'est : ", from_encoding)
 
     sr, url_ret = resp[0], resp[1]
 
-    soup = BS(sr, "html5lib", from_encoding=from_encoding)
+    soup = BS(sr, "html5lib")       #, from_encoding=from_encoding) # if needed
     if debug:
 #        log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
         log.info(who,"(ret_soup) return (soup,sr.geturl()) from ret_soup\n")
@@ -155,8 +160,8 @@ def verify_isbn(log, dbg_lvl, isbn_str, who=''):
     '''
     debug=dbg_lvl & 4
     if debug:
-        log.info("\nIn verify_isbn(log, dbg_lvl, isbn_str)")
-        log.info("isbn_str         : ",isbn_str)
+        log.info(who,"\nIn verify_isbn(log, dbg_lvl, isbn_str)")
+        log.info(who,"isbn_str         : ",isbn_str)
 
     for k in ['(',')','-',' ']:
         if k in isbn_str:
@@ -173,8 +178,8 @@ def ret_clean_text(log, dbg_lvl, text, swap=False, who=''):
     '''
     debug=dbg_lvl & 4
     if debug:
-        log.info("\nIn ret_clean_txt(self, log, text, swap =",swap,")")
-        log.info("text         : ", text)
+        log.info(who,"\nIn ret_clean_txt(self, log, text, swap =",swap,")")
+        log.info(who,"text         : ", text)
 
   # Calibre per default presents the author as "Firstname Lastname", cleaned to be become "firstname lastname"
   # Noosfere present the author as "LASTNAME Firstname", let's get "Firstname LASTNAME" cleaned to "firstname lastname"
@@ -201,7 +206,7 @@ def ret_clean_text(log, dbg_lvl, text, swap=False, who=''):
 
     return lower(get_udc().decode(text))
 
-################# lrp
+################# lrp end
 
 class Babelio(Source):
 
@@ -216,9 +221,9 @@ class Babelio(Source):
                                 'comments', 'publisher', 'pubdate', 'tags'])
     has_html_comments = False
     supports_gzip_transfer_encoding = True
-    BASE_URL = 'https://www.babelio.com'
 
-    print(('BASE_URL 4 %s' %BASE_URL))
+    ID_NAME = 'bbl_id'
+    BASE_URL = 'https://www.babelio.com'
 
     def config_widget(self):
         print('config widget')
@@ -227,7 +232,38 @@ class Babelio(Source):
 
     print('config widget')
 
-    def create_query(self, log, title=None, authors=None, identifiers={}):
+    def get_book_url(self, identifiers):
+        '''
+        get_book_url : used by calibre to convert the identifier to a URL...
+        return an url if nsfr_id exists and is valid
+        '''
+      # lrp
+      # for this to work, we need to define or find the minimum info to build an relevant url
+      # today seems to be: URL_BASE+"nom-de-l-auteur-le-titre-du-livre/<une serie de chiffres>"
+      # that is: BASE_URL + "/livres/" + bbl_id or just: https://www.babelio.com/livres/ + bbl_id
+      #  url example :
+      # https://www.babelio.com/livres/Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832
+      # "https://www.babelio.com/livres/"+"Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832"
+
+        bbl_id = identifiers.get('babelio', None)
+        if bbl_id and "/" in bbl_id and bbl_id.split("/")[-1].isnumeric():
+            return (self.ID_NAME, bbl_id, "https://www.babelio.com/livres/" + bbl_id)
+
+    def id_from_url(self, url):
+        '''
+        id_from_url : takes an URL and extracts the identifier details...
+        '''
+      # symétrique....sauf erreur, un nombre est insuffisant pour retrouver le livre sur babelio
+
+        bbl_id = ""
+        if "https://www.babelio.com/livres/" in url:
+            bbl_id = url.replace("https://www.babelio.com/livres/","").strip()
+        if "/" in bbl_id and bbl_id.split("/")[-1].isnumeric():
+            return (self.ID_NAME, bbl_id)
+        else:
+            return None
+
+    def create_query(self, log, title=None, authors=None):
         '''
         this returns an URL build with all the tokens made from both the title and the authors
         called by identify()
@@ -237,55 +273,44 @@ class Babelio(Source):
             log.info('\nin create_query()')
             log.info('title       : ', title)
             log.info('authors     : ', authors)
-            log.info('identifiers : ', identifiers)
 
         BASE_URL_FIRST = 'http://www.babelio.com/resrecherche.php?Recherche='
         BASE_URL_MID = '+'
         BASE_URL_LAST = '&page=1&item_recherche=livres&tri=auteur'
         q = ''
         au = ''
-        isbn = check_isbn(identifiers.get('isbn', None))
-        tokens = []
-        title = title.replace('\'é','\'e')
-        title = title.replace('\'è','\'e')
-        title = title.replace('\'ê','\'e')
-        title = title.replace('\'É','\'e')
-        title = title.replace('\'â','\'a')
-        title = title.replace('\'à','\'a')
-        title = title.replace('\'î','\'i')
-        title = title.replace('\œ','oe')
-
-        if title:
-            title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
-            q='+'.join(title_tokens)
-# lrp ... keep utf8
-#             if title_tokens:
-#                 try:
-#                     tokens = [quote(t.encode('iso-8859-1') if isinstance(t, str) else t) for t in title_tokens]
-#                     q='+'.join(tokens)
-#                 except:
-#                    return None
+    # inutilisé
+        # isbn = check_isbn(identifiers.get('isbn', None))
+        # tokens = []
+    # inutile Babelio semble accepter les accents ou non les lettre liées ou non (oedipe ou œdipe)
+        # if debug: log.info("title avant replace : ", title)
+        # title = title.replace('\'é','\'e')
+        # title = title.replace('\'è','\'e')
+        # title = title.replace('\'ê','\'e')
+        # title = title.replace('\'É','\'e')
+        # title = title.replace('\'â','\'a')
+        # title = title.replace('\'à','\'a')
+        # title = title.replace('\'î','\'i')
+        # title = title.replace('\œ','oe')
+        # if debug: log.info("title apres replace : ", title)
+    # Invoquer ret_clean_text a ce stade me semble tout aussi inutile
+        # if debug:
+        #     log.info("title after ret_clean_text", ret_clean_text(log, 7, title))   # lrp needs ret_clean_text(log, dbg_lvl, text, swap=False, who='')
 
         if authors:
             author_tokens = self.get_author_tokens(authors, only_first_author=True)
             au='+'.join(author_tokens)
-# lrp ... keep utf8
-#             if author_tokens:
-#                 #except UnicodeEncodError 'iso-8859-1' codec
-#                 try:
-#                     tokens = [quote(t.encode('iso-8859-1') if isinstance(t, str) else t) for t in author_tokens]
-#                     au='+'.join(tokens)
-#                 except:
-#                     return None
 
-        if not q:
-            log.info("Pas de titre, semble-t-il... return\n")
+        if title:
+            title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
+            q='+'.join(title_tokens)
+        else:
+    #    if not q:
+            log.info("Pas de titre, semble-t-il... donc return None\n")
             return None
 
         log.info("return from create_query\n")
         return '%s%s%s%s%s'%(BASE_URL_FIRST,au,BASE_URL_MID,q,BASE_URL_LAST)
-
-#    print('create query')
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''
@@ -300,6 +325,17 @@ class Babelio(Source):
             log.info("title       : ", title)
             log.info("authors     : ", authors)
             log.info("identifiers : ", identifiers)
+        query = None
+
+      # En premier, on essaye de charger la page si un id babelio existe
+        query = self.get_book_url(identifiers)
+
+      # ensuite, on essaye de charger la page si un ISBN existe
+      # def verify_isbn(log, dbg_lvl, isbn_str, who=''):
+        if not query:
+            isbn = check_isbn(identifiers.get('isbn', None))
+            if isbn:
+                query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
 
         # lrp recherche isbn https://www.babelio.com/resrecherche.php?Recherche=9782823809756&item_recherche=isbn
         # lrp recherche token
@@ -309,27 +345,44 @@ class Babelio(Source):
         cj = http.cookiejar.LWPCookieJar()
         br.set_cookiejar(cj)
         log.info('avant query')
-        query = self.create_query(log, title=title, authors=authors, identifiers=identifiers)
-        log.info('returned query is %s' %query)
+      # Enfin sauf bbl_id valid, sauf ISBN, on essaye auteur+titre ou même titre
+      # mais titre doit exister
+
+        if not query:
+            query = self.create_query(log, title=title, authors=authors)
         if query is None:
-            log.error('Métadonnées insuffisantes pour la requête'.encode('latin-1'))
+            log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
+            log.error("Verifier la pertinance des id. (ISBN, babelio)")
             return
 
-        #log.info(b'Recherche de : %s' % unquote(query).encode('latin-1'))
-
-        log.info('Recherche de : %s' % unquote(query))
+        log.info('Recherche de : %s' % query)
         response = br.open_novisit(query, timeout=timeout)
         try:
             raw = response.read().strip()
-            raw = raw.decode('latin-1', errors='replace')
+# lrp: overkill
+#            raw = raw.decode('latin-1', errors='replace')
+# la seule difference significative est dans un texte dont on ne se sert pas...
+#
+# <       Vous ne trouvez pas le livre ou l’édition que vous recherchiez ?
+# ---
+# >       Vous ne trouvez pas le livre ou lédition que vous recherchiez ?
+#
             #open('E:\\babelio.html', 'wb').write(raw)
+
+            if debug:                                     # may be long
+                soup = BS(raw, "html5lib")
+                log.info("get details raw prettyfied :\n", soup.prettify())
+#
+#   <td class="titre_livre">
+#   est unique par livre correspondant à la recherche
+#   et sous cette ref <a class="titre_v2" ... donne les refs
+#
             if not raw:
-#                 log.error('Pas de résultat pour la requête : %r'.encode('latin-1') % unquote(query).encode('latin-1'))
                 log.error('Pas de résultat pour la requête : ', query)
                 return
             root = fromstring(clean_ascii_chars(raw))
         except:
-            msg = 'Impossible de parcourir la page babelio avec la requête : %r'.encode('latin-1') % unquote(query).encode('latin-1')
+            msg = 'Impossible de parcourir la page babelio avec la requête : %r'% query
             log.exception(msg)
             return msg
         self._parse_search_results(log, title, authors, root, matches, timeout)
@@ -341,17 +394,16 @@ class Babelio(Source):
 
         if not matches:
             if title and authors and len(authors) > 1:
-#                 log.info('Pas de résultat avec les auteurs, on utilise uniquement le premier.'.encode('latin-1'))
                 log.info('Pas de résultat avec les auteurs, on utilise uniquement le premier.')
                 return self.identify(log, result_queue, abort, title=title,
                         authors=[authors[0]], timeout=timeout)
             elif authors and len(authors) == 1 :
-#                 log.info('Pas de résultat, on utilise uniquement le titre.'.encode('latin-1'))
                 log.info('Pas de résultat, on utilise uniquement le titre.')
                 return self.identify(log, result_queue, abort, title=title, timeout=timeout)
-#             log.error('Pas de résultat pour la requête : %r'.encode('latin-1') % unquote(query.encode('latin-1')))
             log.error('Pas de résultat pour la requête : ', query)
             return
+
+        if debug: log.info(" matches : ", matches)
 
         from calibre_plugins.babelio.worker import Worker
         workers = [Worker(url, result_queue, br, log, i, self) for i, url in
@@ -381,72 +433,33 @@ class Babelio(Source):
         '''
         debug = 1
         if debug:
-            log.info("(inutilisé) orig_title : ", orig_title)
-            log.info("orig_authors           : ", orig_authors)
-            log.info("root                   : ", root)
-            log.info("matches                : ", matches)
-
-        orig_aut = None
-        if orig_authors is not None:
-            orig_aut = [author.split(',')[0] for author in orig_authors if (',' in author)] \
-                        + [author.split(' ')[1] for author in orig_authors if (' ' in author)]
-        # log.info([author.split(',')[0] for author in orig_authors if (',' in author)])
-        # log.info([author.split(' ')[1] for author in orig_authors if (' ' in author)])
-        non_trouve = root.xpath('//div[@class="module_t1"]/h2')
-        '''if non_trouve :
-            non_trouve_text = non_trouve[0].text_content()
-            if '(0)' in non_trouve_text :
-                return'''
-
-        def minussa(chaine):
-            chaine = str(chaine.lower())
-            chnorm = unicodedata.normalize('NFKD', chaine)
-            return "".join([car for car in chnorm if not unicodedata.combining(car)])
-
-        def simil(mot1, mot2, ratio):
-            mot1, mot2 = minussa(mot1), minussa(mot2)
-            return SequenceMatcher(None, mot1, mot2).ratio() >= ratio
-
-        def is_simil(orig_aut, dict_res, ratio):
-            for aut_compl in (v.text for v in list(dict_res.values())) :
-                for a in orig_aut :
-                    if simil(aut_compl.split()[-1], a, ratio):
-                        return True
-                    return False
+            log.info("(inutilisé) orig_title    : ", orig_title)
+            log.info("(inutilisé) orig_authors  : ", orig_authors)
+            log.info("matches                   : ", matches)
 
         titre_res = root.xpath(".//*[@id='page_corps']/div/div[4]/div[2]/table/tbody/tr/td[2]/a[1]")
-        log.info('t_res', titre_res)
+        if debug:
+            log.info('type(titre_res) : ', type(titre_res))
+            log.info("titre_res       : ", titre_res)
+
         if len(titre_res) == 0 :
             return
         else :
             matches.append(Babelio.BASE_URL + titre_res[0].get('href'))
+            if debug: log.info("matches at return time : ", matches)
             return
-# lrp never accessed
-        # aut_res = root.xpath(".//*[@id='page_corps']/div/div[4]/div[2]/table/tbody/tr/td[3]/a")
-        # dict_res = dict(list(zip(titre_res, aut_res)))
-        # # log.info('dict', dict_res)
-        # if orig_aut is not None :
-        #     ratio = 0.7
-        #     for k in list(dict_res.keys()):
-        #         if is_simil(orig_aut, dict_res, ratio):
-        #             matches.append(Babelio.BASE_URL + k.get('href'))
-        # else :
-        #     for i in range(0, len(titre_res)):
-        #         matches.append(Babelio.BASE_URL + titre_res[i].get('href'))
-        #         matches = matches[:5]
-        # log.info('mat', matches)
 
     def get_cached_cover_url(self, identifiers):
         if JSONConfig('plugins/Babelio').get('cover', False) == False:
             return None
         url = None
-        bab_id = identifiers.get('babelio', None)
-        if bab_id is None:
+        bbl_id = identifiers.get('babelio', None)
+        if bbl_id is None:
             isbn = identifiers.get('isbn', None)
             if isbn is not None:
-                bab_id = self.cached_isbn_to_identifier(isbn)
-        if bab_id is not None:
-            url = self.cached_identifier_to_cover_url(bab_id)
+                bbl_id = self.cached_isbn_to_identifier(isbn)
+        if bbl_id is not None:
+            url = self.cached_identifier_to_cover_url(bbl_id)
         return url
 
     def download_cover(self, log, result_queue, abort,
@@ -475,7 +488,6 @@ class Babelio(Source):
                 if cached_url is not None:
                     break
         if cached_url is None:
-#             log.info('Pas de couverture trouvée.'.encode('latin-1'))
             log.info('Pas de couverture trouvée.')
             return
 
@@ -483,12 +495,10 @@ class Babelio(Source):
             return
         br = self.browser
 
-#         log.info('On télécharge la couverture depuis :'.encode('latin-1'), cached_url)
         log.info('On télécharge la couverture depuis :', cached_url)
         try:
             cdata = br.open_novisit(cached_url, timeout=timeout).read()
             result_queue.put((self, cdata))
         except:
-#             log.exception('Impossible de télécharger la couverture depuis :'.encode('latin-1'), cached_url)
             log.exception('Impossible de télécharger la couverture depuis :', cached_url)
 
