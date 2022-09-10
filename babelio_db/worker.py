@@ -28,6 +28,7 @@ import datetime
 from bs4 import BeautifulSoup as BS
 from threading import Thread
 import lxml
+import time
 
 from calibre.ebooks.metadata.book.base import Metadata
 from calibre.ebooks.metadata import check_isbn
@@ -77,6 +78,9 @@ class Worker(Thread):
         '''
         sets details this code uploads url then calls parse_details
         '''
+        start = time.time()
+        self.log.info(self.who,"in get details(), start : ", start)
+
         debug = 1
         if debug: self.log.info(self.who,"\n in get_details")
         try:
@@ -84,11 +88,14 @@ class Worker(Thread):
         except:
             self.log.exception("Erreur en cherchant l'id babelio dans : %r" % self.url)
             self.bbl_id = None
+
+        self.log.info(self.who,"apres parse_bbl_id() ... : ", time.time() - start)
+
         try:
             self.log.info('Url Babelio: %r' % self.url)
             policy = mechanize.DefaultCookiePolicy(rfc2965=True)
-            cj = mechanize.LWPCookieJar(policy=policy)
-            self.browser.set_cookiejar(cj)
+            # cj = mechanize.LWPCookieJar(policy=policy)
+            # self.browser.set_cookiejar(cj)
             raw = self.browser.open_novisit(self.url, timeout=self.timeout).read().strip()
         except Exception as e:
             if isinstance(getattr(e, 'getcode', None), collections.Callable) and e.getcode() == 404:
@@ -103,6 +110,8 @@ class Worker(Thread):
                 msg = 'Impossible de lancer la requ�te : %r'.encode('latin-1') % self.url
                 self.log.exception(msg)
             return
+
+        self.log.info(self.who,"apres self.browser.open_novisit() ... : ", time.time() - start)
 
         # if debug:                                     # may be long
         #     soup = BS(raw, "html5lib")
@@ -121,18 +130,28 @@ class Worker(Thread):
             return
         self.parse_details(root)
 
+        self.log.info(self.who,"apres fromstring() ... : ", time.time() - start)
+
     def parse_details(self, root):
+
+        start = time.time()
+        self.log.info(self.who,"in parse_details(), start : ", start)
+
         try:
             title = self.parse_title(root)
         except:
             self.log.exception('Erreur en cherchant le titre dans : %r' % self.url)
             title = None
 
+        self.log.info(self.who,"apres parse_title() ... : ", time.time() - start)
+
         try:
             authors = self.parse_authors(root)
         except:
             self.log.info('Erreur en cherchant l\'auteur dans: %r' % self.url)
             authors = []
+
+        self.log.info(self.who,"apres parse_authors() ... : ", time.time() - start)
 
         if not title or not authors :
             self.log.error('Impossible de trouver le titre/auteur dans %r' % self.url)
@@ -152,10 +171,14 @@ class Worker(Thread):
         except:
             self.log.exception('Erreur en cherchant ISBN, �diteur et date de publication dans : %r' % self.url)
 
+        self.log.info(self.who,"apres parse_meta() ... : ", time.time() - start)
+
         try:
             mi.rating = self.parse_rating(root)
         except:
             self.log.exception('Erreur en cherchant la note dans : %r' % self.url)
+
+        self.log.info(self.who,"apres parse_rating() ... : ", time.time() - start)
 
         try:
             mi.comments = self.parse_comments(root).replace('\r\n', '').replace('\r', '').strip()
@@ -163,6 +186,8 @@ class Worker(Thread):
                 self.log.info('Pas de commentaires pour ce livre')
         except:
             self.log.exception('Erreur en cherchant le r�sum� : %r' % self.url)
+
+        self.log.info(self.who,"apres parse_comments() ... : ", time.time() - start)
 
         if JSONConfig('plugins/Babelio').get('cover', False) == True:
             try:
@@ -175,12 +200,17 @@ class Worker(Thread):
             self.cover_url = None
         mi.has_cover = bool(self.cover_url)
 
+        self.log.info(self.who,"apres parse_cover() ... : ", time.time() - start)
+
         try:
             tags = self.parse_tags(root)
             if tags:
                 mi.tags = tags
         except:
             self.log.exception('Erreur en cherchant les �tiquettes dans : %r' % self.url)
+
+        self.log.info(self.who,"apres parse_tags() ... : ", time.time() - start)
+
         if self.bbl_id:
             if self.isbn:
                 self.plugin.cache_isbn_to_identifier(self.isbn, self.bbl_id)
@@ -248,23 +278,31 @@ class Worker(Thread):
             return comments
 
     def parse_cover(self, root):
+        start = time.time()
         imgcol_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[1]/img")
+        self.log.info(self.who,"in parse_cover 0 : ", time.time() - start)
         if imgcol_node:
             url = imgcol_node[0].get('src')
             img_url = BASE_URL + url
+            self.log.info(self.who,"in parse_cover 1 : ", time.time() - start)
             if url.startswith('http'):
                 img_url = url
+                self.log.info(self.who,"in parse_cover 2 : ", time.time() - start)
             self.log.info('img_url :', img_url)
-            try :
-                info = self.browser.open_novisit(img_url, timeout=self.timeout).info()
-            except :
-                self.log.warning('Lien pour l\'image invalide : %s' % img_url)
-                return None
-            #if int(info.getheader('Content-Length')) > 1000:
-            if int(info.get('Content-Length')) > 1000:
-                return img_url
-            else:
-                self.log.warning('Lien pour l\'image invalide : %s' % img_url)
+          # the following takes forever (amazon site?), let's decide url is correct.
+          # anyway when fetching cover this will be accessed in time (or not)
+            # try :
+            #     info = self.browser.open_novisit(img_url, timeout=self.timeout).info()
+            #     self.log.info(self.who,"in parse_cover 3 : ", time.time() - start)
+            # except :
+            #     self.log.warning('Lien pour l\'image invalide : %s' % img_url)
+            #     return None
+            # #if int(info.getheader('Content-Length')) > 1000:
+            # if int(info.get('Content-Length')) > 1000:
+            #     self.log.info(self.who,"in parse_cover 4 : ", time.time() - start)
+            return img_url
+            # else:
+            #     self.log.warning('Lien pour l\'image invalide : %s' % img_url)
 
     def parse_meta(self, root):
         meta_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/div[1]")

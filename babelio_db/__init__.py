@@ -174,15 +174,16 @@ def verify_isbn(log, dbg_lvl, isbn_str, who=''):
 def ret_clean_text(log, dbg_lvl, text, swap=False, who=''):
     '''
     for the site search to work smoothly, authors and title needs to be cleaned
-    we need to remove non significant characters and remove useless space character
+    we need to remove non significant characters and remove useless space character...
+    Calibre per default presents the author as "Firstname Lastname", cleaned to
+    become "firstname lastname"  Noosfere present the author as "LASTNAME Firstname",
+    let's get "Firstname LASTNAME" cleaned to "firstname lastname"
     '''
     debug=dbg_lvl & 4
     if debug:
         log.info(who,"\nIn ret_clean_txt(self, log, text, swap =",swap,")")
         log.info(who,"text         : ", text)
 
-  # Calibre per default presents the author as "Firstname Lastname", cleaned to be become "firstname lastname"
-  # Noosfere present the author as "LASTNAME Firstname", let's get "Firstname LASTNAME" cleaned to "firstname lastname"
     for k in [',','.','-',"'",'"','(',')']:             # yes I found a name with '(' and ')' in it...
         if k in text:
             text = text.replace(k," ")
@@ -328,7 +329,7 @@ class Babelio(Source):
         query = None
 
       # En premier, on essaye de charger la page si un id babelio existe
-        query = self.get_book_url(identifiers)
+        # query = self.get_book_url(identifiers)
 
       # ensuite, on essaye de charger la page si un ISBN existe
       # def verify_isbn(log, dbg_lvl, isbn_str, who=''):
@@ -342,8 +343,10 @@ class Babelio(Source):
 
         matches = []
         br = self.browser
-        cj = http.cookiejar.LWPCookieJar()
-        br.set_cookiejar(cj)
+        start = time.time()
+        log.info("start :",start)
+        # cj = http.cookiejar.LWPCookieJar()
+        # br.set_cookiejar(cj)
         log.info('avant query')
       # Enfin sauf bbl_id valid, sauf ISBN, on essaye auteur+titre ou même titre
       # mais titre doit exister
@@ -352,11 +355,13 @@ class Babelio(Source):
             query = self.create_query(log, title=title, authors=authors)
         if query is None:
             log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
-            log.error("Verifier la pertinance des id. (ISBN, babelio)")
+            log.error("Verifier la validité des ids soumis (ISBN, babelio).")
             return
-
         log.info('Recherche de : %s' % query)
         response = br.open_novisit(query, timeout=timeout)
+
+        log.info("apres response = ... : ", time.time() -start)
+
         try:
             raw = response.read().strip()
 # lrp: overkill
@@ -372,6 +377,8 @@ class Babelio(Source):
             if debug:                                     # may be long
                 soup = BS(raw, "html5lib")
                 log.info("get details raw prettyfied :\n", soup.prettify())
+
+                log.info("apres soup.prettify() ... : ", time.time() -start)
 #
 #   <td class="titre_livre">
 #   est unique par livre correspondant à la recherche
