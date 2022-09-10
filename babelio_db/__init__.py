@@ -201,12 +201,13 @@ def ret_clean_text(log, dbg_lvl, text, swap=False, who=''):
         text=prenom+" "+nom
         if debug: log.info("text         : ", text)
 
+    clntxt = lower(get_udc().decode(text))
+
     if debug:
-        log.info("cleaned text : ", text)
+        log.info("cleaned text : ", clntxt)
         log.info("return text from ret_clean_txt")
 
-    return lower(get_udc().decode(text))
-
+    return clntxt
 ################# lrp end
 
 class Babelio(Source):
@@ -236,16 +237,15 @@ class Babelio(Source):
     def get_book_url(self, identifiers):
         '''
         get_book_url : used by calibre to convert the identifier to a URL...
-        return an url if nsfr_id exists and is valid
-        '''
-      # lrp
-      # for this to work, we need to define or find the minimum info to build an relevant url
-      # today seems to be: URL_BASE+"nom-de-l-auteur-le-titre-du-livre/<une serie de chiffres>"
-      # that is: BASE_URL + "/livres/" + bbl_id or just: https://www.babelio.com/livres/ + bbl_id
-      #  url example :
-      # https://www.babelio.com/livres/Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832
-      # "https://www.babelio.com/livres/"+"Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832"
+        return an url if bbl_id exists and is valid
+        for this to work, we need to define or find the minimum info to build an relevant url
+        today seems to be: URL_BASE+"nom-de-l-auteur-le-titre-du-livre/<une serie de chiffres>"
+        that is: BASE_URL + "/livres/" + bbl_id or just: https://www.babelio.com/livres/ + bbl_id
+        example over an url :
+        https://www.babelio.com/livres/Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832
+        "https://www.babelio.com/livres/"+"Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832"
 
+        '''
         bbl_id = identifiers.get('babelio', None)
         if bbl_id and "/" in bbl_id and bbl_id.split("/")[-1].isnumeric():
             return (self.ID_NAME, bbl_id, "https://www.babelio.com/livres/" + bbl_id)
@@ -254,8 +254,6 @@ class Babelio(Source):
         '''
         id_from_url : takes an URL and extracts the identifier details...
         '''
-      # symétrique....sauf erreur, un nombre est insuffisant pour retrouver le livre sur babelio
-
         bbl_id = ""
         if "https://www.babelio.com/livres/" in url:
             bbl_id = url.replace("https://www.babelio.com/livres/","").strip()
@@ -280,29 +278,16 @@ class Babelio(Source):
         BASE_URL_LAST = '&page=1&item_recherche=livres&tri=auteur'
         q = ''
         au = ''
-    # inutilisé
-        # isbn = check_isbn(identifiers.get('isbn', None))
-        # tokens = []
-    # inutile Babelio semble accepter les accents ou non les lettre liées ou non (oedipe ou œdipe)
-        # if debug: log.info("title avant replace : ", title)
-        # title = title.replace('\'é','\'e')
-        # title = title.replace('\'è','\'e')
-        # title = title.replace('\'ê','\'e')
-        # title = title.replace('\'É','\'e')
-        # title = title.replace('\'â','\'a')
-        # title = title.replace('\'à','\'a')
-        # title = title.replace('\'î','\'i')
-        # title = title.replace('\œ','oe')
-        # if debug: log.info("title apres replace : ", title)
-    # Invoquer ret_clean_text a ce stade me semble tout aussi inutile
-        # if debug:
-        #     log.info("title after ret_clean_text", ret_clean_text(log, 7, title))   # lrp needs ret_clean_text(log, dbg_lvl, text, swap=False, who='')
 
         if authors:
+            # clean_text(log, dbg_lvl, text, swap=False, who='')
+            for i in range(len(authors)):
+                authors[i] = ret_clean_text(log, 7, authors[i])
             author_tokens = self.get_author_tokens(authors, only_first_author=True)
             au='+'.join(author_tokens)
 
         if title:
+            title = ret_clean_text(log, 7, title)
             title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
             q='+'.join(title_tokens)
         else:
@@ -327,40 +312,37 @@ class Babelio(Source):
             log.info("authors     : ", authors)
             log.info("identifiers : ", identifiers)
         query = None
-
-      # En premier, on essaye de charger la page si un id babelio existe
-        # query = self.get_book_url(identifiers)
-
-      # ensuite, on essaye de charger la page si un ISBN existe
-      # def verify_isbn(log, dbg_lvl, isbn_str, who=''):
-        if not query:
-            isbn = check_isbn(identifiers.get('isbn', None))
-            if isbn:
-                query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
-
-        # lrp recherche isbn https://www.babelio.com/resrecherche.php?Recherche=9782823809756&item_recherche=isbn
-        # lrp recherche token
-
         matches = []
         br = self.browser
-        start = time.time()
-        log.info("start :",start)
         # cj = http.cookiejar.LWPCookieJar()
         # br.set_cookiejar(cj)
-        log.info('avant query')
-      # Enfin sauf bbl_id valid, sauf ISBN, on essaye auteur+titre ou même titre
-      # mais titre doit exister
 
+      # on a des identifiers
+        if identifiers:
+          # En premier, on essaye de charger la page si un id babelio existe
+            tmp_matches = self.get_book_url(identifiers)
+            if tmp_matches:
+                matches = [tmp_matches[2]]
+                log.info("got babelio identifier")
+
+          # ensuite, on essaye de charger la page si un ISBN existe
+          # def verify_isbn(log, dbg_lvl, isbn_str, who=''):
+            if not matches:
+                isbn = check_isbn(identifiers.get('isbn', None))
+                if isbn:
+                    query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
+                    log.info("got isbn identifier, query is : ", query)
+
+          # Enfin sauf identifiers, on essaye auteur+titre ou même titre
+          # mais titre doit exister
         if not query:
             query = self.create_query(log, title=title, authors=authors)
         if query is None:
             log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
             log.error("Verifier la validité des ids soumis (ISBN, babelio).")
             return
-        log.info('Recherche de : %s' % query)
+        log.info('from authors and/or title got query : ', query)
         response = br.open_novisit(query, timeout=timeout)
-
-        log.info("apres response = ... : ", time.time() -start)
 
         try:
             raw = response.read().strip()
@@ -376,9 +358,8 @@ class Babelio(Source):
 
             if debug:                                     # may be long
                 soup = BS(raw, "html5lib")
-                log.info("get details raw prettyfied :\n", soup.prettify())
+                # log.info("get details raw prettyfied :\n", soup.prettify())
 
-                log.info("apres soup.prettify() ... : ", time.time() -start)
 #
 #   <td class="titre_livre">
 #   est unique par livre correspondant à la recherche

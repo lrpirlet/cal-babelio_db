@@ -223,6 +223,17 @@ class Worker(Thread):
         self.result_queue.put(mi)
 
     def parse_bbl_id(self, url):
+        '''
+        returns either None or a valid bbl_id
+        '''
+        bbl_id = ""
+        if "https://www.babelio.com/livres/" in url:
+            bbl_id = url.replace("https://www.babelio.com/livres/","").strip()
+        if "/" in bbl_id and bbl_id.split("/")[-1].isnumeric():
+            return bbl_id
+        else:
+            return None
+
         return re.search(r'/(\d+)', url).groups(0)[0]
 
     def parse_title(self, root):
