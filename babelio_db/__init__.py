@@ -215,7 +215,7 @@ class Babelio(Source):
     name = 'Babelio'
     description = 'Télécharge les métadonnées et couverture depuis Babelio.com'
     author = 'VdF'
-    version = (2, 0, 0)
+    version = (3, 0, 0)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -227,12 +227,61 @@ class Babelio(Source):
     ID_NAME = 'bbl_id'
     BASE_URL = 'https://www.babelio.com'
 
-    def config_widget(self):
-        print('config widget')
-        from calibre_plugins.babelio.config import ConfigWidget
-        return ConfigWidget(self)
+    # def config_widget(self):
+    #     print('config widget')
+    #     from calibre_plugins.babelio.config import ConfigWidget
+    #     return ConfigWidget(self)
 
-    print('config widget')
+    # print('config widget')
+
+  # Since the babelio_db is written in French for French talking poeple, I
+  # took the liberty to write the following information in French.
+
+    config_help_message = '<p>'+_(" Babelio est un réseau social dédié aux livres et aux lecteurs. Il permet de créer"
+                                  " et d’organiser sa bibliothèque en ligne, d’obtenir des informations sur des oeuvres,"
+                                  " de partager et d’échanger ses goûts et impressions littéraires avec d’autres lecteurs."
+                                  " Il est a noter que certaines images de couvertures ne sont PAS localisée sur le site"
+                                  " même de Babelio... des temps extrèmement longs peuvent en être engendré."
+                                  )
+
+    options = (
+        Option(
+               'debug_level',
+               'number',
+               7,
+               _("Verbosité du journal, de 0 à 7"),                                                 # verbosity of the log
+               _("Le niveau de verbosité: "                                                         # the level of verbosity.
+                 " O un minimum de rapport, "                                                       # value 0 will output the minimum,
+                 " 1 rapport étendu de __init__, "                                                  # 1 debug messages of __init__
+                 " 2 rapport étendu de worker, "                                                    # 2 debug messages of worker
+                 " 4 rapport étendu des annexes... "                                                # 4 debug level of accessory code...
+                 " La somme 3, 5 ou 7 peut être introduite, ainsi 7 donne un maximum de rapport. "  # 3, 5 or 7 is the sum of the value defined above.
+                 " Note: mettre la verbosité = 7 pour rapport d'erreur")            # In fact it is a bitwise flag spread over the last 3 bits of debug_level
+               ),
+        Option(
+               'Cover_wanted',
+               'bool',
+               True,
+               _("Authorize les couvertures vue sur Babelio"),
+               _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long).")
+            )
+    )
+
+    @property
+    def dbg_lvl(self):
+        x = getattr(self, 'dl', None)
+        if x is not None:
+            return x
+        dl = self.prefs.get('debug_level', False)
+        return dl
+
+    @property
+    def with_cover(self):
+        x = getattr(self, 'wcover', None)
+        if x is not None:
+            return x
+        wcover = self.prefs.get('Cover_wanted', False)
+        return wcover
 
     def get_book_url(self, identifiers):
         '''
@@ -267,7 +316,7 @@ class Babelio(Source):
         this returns an URL build with all the tokens made from both the title and the authors
         called by identify()
         '''
-        debug = 1
+        debug=self.dbg_lvl & 1
         if debug:
             log.info('\nin create_query()')
             log.info('title       : ', title)
@@ -282,7 +331,7 @@ class Babelio(Source):
         if authors:
             # clean_text(log, dbg_lvl, text, swap=False, who='')
             for i in range(len(authors)):
-                authors[i] = ret_clean_text(log, 7, authors[i])
+                authors[i] = ret_clean_text(log, self.dbg_lvl, authors[i])
             author_tokens = self.get_author_tokens(authors, only_first_author=True)
             au='+'.join(author_tokens)
 
@@ -304,7 +353,10 @@ class Babelio(Source):
         Note this method will retry without identifiers automatically... read can be resubmitted from inside it
         if no match is found with identifiers.
         '''
-        debug=1
+        log.info('self.with_cover : ', self.with_cover)
+        log.info('self.dgb_lvl    : ', self.dbg_lvl)
+
+        debug=self.dbg_lvl & 1
         if debug:
             log.info("\nIn identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30)")
             log.info("abort       : ", abort)
@@ -335,17 +387,18 @@ class Babelio(Source):
 
           # Enfin sauf identifiers, on essaye auteur+titre ou même titre
           # mais titre doit exister
-        if not query:
-            query = self.create_query(log, title=title, authors=authors)
-        if query is None:
-            log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
-            log.error("Verifier la validité des ids soumis (ISBN, babelio).")
-            return
-        log.info('from authors and/or title got query : ', query)
-        response = br.open_novisit(query, timeout=timeout)
+        if not matches:
+            if not query:
+                query = self.create_query(log, title=title, authors=authors)
+                if query is None:
+                    log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
+                    log.error("Verifier la validité des ids soumis (ISBN, babelio).")
+                    return
+                log.info('from authors and/or title got query : ', query)
+            response = br.open_novisit(query, timeout=timeout)
 
-        try:
-            raw = response.read().strip()
+            try:
+                raw = response.read().strip()
 # lrp: overkill
 #            raw = raw.decode('latin-1', errors='replace')
 # la seule difference significative est dans un texte dont on ne se sert pas...
@@ -356,8 +409,8 @@ class Babelio(Source):
 #
             #open('E:\\babelio.html', 'wb').write(raw)
 
-            if debug:                                     # may be long
-                soup = BS(raw, "html5lib")
+                if debug:                                     # may be long
+                    soup = BS(raw, "html5lib")
                 # log.info("get details raw prettyfied :\n", soup.prettify())
 
 #
@@ -365,15 +418,15 @@ class Babelio(Source):
 #   est unique par livre correspondant à la recherche
 #   et sous cette ref <a class="titre_v2" ... donne les refs
 #
-            if not raw:
-                log.error('Pas de résultat pour la requête : ', query)
-                return
-            root = fromstring(clean_ascii_chars(raw))
-        except:
-            msg = 'Impossible de parcourir la page babelio avec la requête : %r'% query
-            log.exception(msg)
-            return msg
-        self._parse_search_results(log, title, authors, root, matches, timeout)
+                if not raw:
+                    log.error('Pas de résultat pour la requête : ', query)
+                    return
+                root = fromstring(clean_ascii_chars(raw))
+            except:
+                msg = 'Impossible de parcourir la page babelio avec la requête : %r'% query
+                log.exception(msg)
+                return msg
+            self._parse_search_results(log, title, authors, root, matches, timeout)
 
         if abort.is_set():
             if debug:
@@ -419,7 +472,7 @@ class Babelio(Source):
         '''
         this method returns after it modifies "matches" received as a parameter
         '''
-        debug = 1
+        debug=self.dbg_lvl & 1
         if debug:
             log.info("(inutilisé) orig_title    : ", orig_title)
             log.info("(inutilisé) orig_authors  : ", orig_authors)
@@ -452,6 +505,15 @@ class Babelio(Source):
 
     def download_cover(self, log, result_queue, abort,
         title=None, authors=None, identifiers={}, timeout=30, get_best_cover=False):
+        '''
+        will download cover as directed by Babelio provided it was found (and then cached)...
+        If not, it will run the metadata download and try to cache the cover URL...
+        Note that the cover url may NOT be local to Babelio leading to possibly long waiting time
+
+        '''
+        debug=self.dbg_lvl & 1
+
+        if debug: log.info("\n In download_cover ")
         if JSONConfig('plugins/Babelio').get('cover', False) == False:
             return
         cached_url = self.get_cached_cover_url(identifiers)
