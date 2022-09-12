@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-# vim:fileencoding=latin-1:ts=4:sw=4:sta:et:sts=4:ai
+# vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+'''
+# to mix UTF-8 (in __init__.py) and latin-& (in worker.py) just confuses me completely
+# delme vim:fileencoding=latin-1:ts=4:sw=4:sta:et:sts=4:ai
+'''
 from __future__ import (unicode_literals, division, absolute_import,
                         print_function)
 import collections
@@ -41,14 +45,25 @@ from calibre_plugins.babelio import ret_soup, verify_isbn
 ############ lrp
 
 class Worker(Thread):
+    '''
+    worker is a thread that runs in parallel with other worker...
+    In order to distinguish activities from worker's each log activity will contain who (see definition below)
+    worker will queue (result_queue) all gathered meta-data about the book submited (url)
+    '''
 
-    def __init__(self, url, result_queue, browser, log, relevance, plugin, timeout=20):
+    def __init__(self, url, result_queue, browser, log, relevance, plugin, dbg_lvl, timeout=20):
         Thread.__init__(self)
         self.daemon = True
-        self.url, self.result_queue = url, result_queue
-        self.log, self.timeout = log, timeout
-        self.relevance, self.plugin = relevance, plugin
+        self.url = url
+        self.result_queue = result_queue
+        self.log = log
+        self.timeout = timeout
+        self.relevance = relevance
+        self.plugin = plugin
         self.browser = browser.clone_browser()
+        self.dbg_lvl = dbg_lvl
+        self.with_cover = self.plugin.with_cover
+
         self.cover_url = self.isbn = self.bbl_id = None
         self.who = "[worker "+str(relevance)+"]"
         self.browser.set_handle_equiv(True)
@@ -57,18 +72,24 @@ class Worker(Thread):
         self.browser.set_handle_referer(True)
         self.browser.set_handle_robots(False)
 
-        debug = 1
-        self.log.info("\nIn worker")
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"In worker\n")
         if debug:
-            self.log.info(self.who,"url            : ", self.url)
-            self.log.info(self.who,"self.relevance : ", self.relevance)
-            self.log.info(self.who,"self.plugin    : ", self.plugin)
-            self.log.info(self.who,"plugin         : ", self.plugin)
+            self.log.info(self.who,"self.url            : ", self.url)
+            self.log.info(self.who,"self.relevance      : ", self.relevance)
+            self.log.info(self.who,"self.plugin         : ", self.plugin)
+            self.log.info(self.who,"self.dbg_lvl        : ", self.dbg_lvl)
+            self.log.info(self.who,"self.timeout        : ", self.timeout)
+            self.log.info(self.who,"self.with_cover     : ", self.with_cover)
+
 
     def run(self):
         '''
         this control the rest of the worker process
         '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in run(self)\n")
+
         try:
             self.get_details()
         except:
@@ -78,22 +99,23 @@ class Worker(Thread):
         '''
         sets details this code uploads url then calls parse_details
         '''
-        start = time.time()
-        self.log.info(self.who,"in get details(), start : ", start)
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in get_details(self)\n")
+        if debug:
+            start = time.time()
+            self.log.info(self.who,"in get details(), start time : ", start)
 
-        debug = 1
-        if debug: self.log.info(self.who,"\n in get_details")
         try:
             self.bbl_id = self.parse_bbl_id(self.url)
         except:
             self.log.exception("Erreur en cherchant l'id babelio dans : %r" % self.url)
             self.bbl_id = None
 
-        self.log.info(self.who,"apres parse_bbl_id() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_bbl_id() ... : ", time.time() - start)
 
         try:
             self.log.info('Url Babelio: %r' % self.url)
-            policy = mechanize.DefaultCookiePolicy(rfc2965=True)
+            # policy = mechanize.DefaultCookiePolicy(rfc2965=True)
             # cj = mechanize.LWPCookieJar(policy=policy)
             # self.browser.set_cookiejar(cj)
             raw = self.browser.open_novisit(self.url, timeout=self.timeout).read().strip()
@@ -104,18 +126,19 @@ class Worker(Thread):
             attr = getattr(e, 'args', [None])
             attr = attr if attr else [None]
             if isinstance(attr[0], socket.timeout):
-                msg = 'D�lai d\'attente d�pass�. R�essayez.'.encode('latin-1')
+                msg = 'Délai d\'attente dépassé. Réessayez.'
                 self.log.error(msg)
             else:
-                msg = 'Impossible de lancer la requ�te : %r'.encode('latin-1') % self.url
+                msg = 'Impossible de lancer la requête : %r' % self.url
                 self.log.exception(msg)
             return
 
-        self.log.info(self.who,"apres self.browser.open_novisit() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après self.browser.open_novisit() ... : ", time.time() - start)
 
-        # if debug:                                     # may be long
-        #     soup = BS(raw, "html5lib")
-        #     self.log.info(self.who,"get details raw prettyfied :\n", soup.prettify())
+        if debug:                                     # may be long
+            soup = BS(raw, "html5lib")
+            self.log.info(self.who,"get details raw prettyfied :\n", soup.prettify())
+
         raw = raw.decode('latin-1', errors='replace')
 
         if '<title>404 - ' in raw:
@@ -130,12 +153,20 @@ class Worker(Thread):
             return
         self.parse_details(root)
 
-        self.log.info(self.who,"apres fromstring() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après fromstring() ... : ", time.time() - start)
 
-    def parse_details(self, root):
+    def parse_details(  self, root):
+        '''
+        gathers all details needed to complete the alibre metadata, handels
+        errors and sets mi
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_details(self, root)\n")
+        if debug:
+            self.log.info(self.who,"type(root) : ", type(root))
 
-        start = time.time()
-        self.log.info(self.who,"in parse_details(), start : ", start)
+            start = time.time()
+            self.log.info(self.who,"in parse_details(), new start : ", start)
 
         try:
             title = self.parse_title(root)
@@ -143,7 +174,7 @@ class Worker(Thread):
             self.log.exception('Erreur en cherchant le titre dans : %r' % self.url)
             title = None
 
-        self.log.info(self.who,"apres parse_title() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_title() ... : ", time.time() - start)
 
         try:
             authors = self.parse_authors(root)
@@ -151,7 +182,7 @@ class Worker(Thread):
             self.log.info('Erreur en cherchant l\'auteur dans: %r' % self.url)
             authors = []
 
-        self.log.info(self.who,"apres parse_authors() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_authors() ... : ", time.time() - start)
 
         if not title or not authors :
             self.log.error('Impossible de trouver le titre/auteur dans %r' % self.url)
@@ -169,47 +200,48 @@ class Worker(Thread):
             if pubdate :
                 self.pubdate = mi.pubdate = pubdate
         except:
-            self.log.exception('Erreur en cherchant ISBN, �diteur et date de publication dans : %r' % self.url)
+            self.log.exception('Erreur en cherchant ISBN, éditeur et date de publication dans : %r' % self.url)
 
-        self.log.info(self.who,"apres parse_meta() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_meta() ... : ", time.time() - start)
 
         try:
             mi.rating = self.parse_rating(root)
         except:
             self.log.exception('Erreur en cherchant la note dans : %r' % self.url)
 
-        self.log.info(self.who,"apres parse_rating() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_rating() ... : ", time.time() - start)
 
         try:
             mi.comments = self.parse_comments(root).replace('\r\n', '').replace('\r', '').strip()
             if mi.comments == '' :
                 self.log.info('Pas de commentaires pour ce livre')
         except:
-            self.log.exception('Erreur en cherchant le r�sum� : %r' % self.url)
+            self.log.exception('Erreur en cherchant le résumé : %r' % self.url)
 
-        self.log.info(self.who,"apres parse_comments() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_comments() ... : ", time.time() - start)
 
-        if JSONConfig('plugins/Babelio').get('cover', False) == True:
+#        if JSONConfig('plugins/Babelio').get('cover', False) == True:
+        if self.with_cover :
             try:
                 self.cover_url = self.parse_cover(root)
             except:
                 self.log.exception('Erreur en cherchant la couverture dans : %r' % self.url)
 
         else :
-            self.log.info('T�l�chargement de la couverture d�sactiv�')
+            self.log.info('Téléchargement de la couverture désactivé')
             self.cover_url = None
         mi.has_cover = bool(self.cover_url)
 
-        self.log.info(self.who,"apres parse_cover() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_cover() ... : ", time.time() - start)
 
         try:
             tags = self.parse_tags(root)
             if tags:
                 mi.tags = tags
         except:
-            self.log.exception('Erreur en cherchant les �tiquettes dans : %r' % self.url)
+            self.log.exception('Erreur en cherchant les étiquettes dans : %r' % self.url)
 
-        self.log.info(self.who,"apres parse_tags() ... : ", time.time() - start)
+        if debug: self.log.info(self.who,"Temps après parse_tags() ... : ", time.time() - start)
 
         if self.bbl_id:
             if self.isbn:
@@ -224,8 +256,12 @@ class Worker(Thread):
 
     def parse_bbl_id(self, url):
         '''
-        returns either None or a valid bbl_id
+        returns either None or a valid bbl_id; bbl_id is a unique id that, combined with
+        fixed partial address string, gives the complete url address of the book.
         '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_bbl_id\n")
+
         bbl_id = ""
         if "https://www.babelio.com/livres/" in url:
             bbl_id = url.replace("https://www.babelio.com/livres/","").strip()
@@ -237,6 +273,13 @@ class Worker(Thread):
         return re.search(r'/(\d+)', url).groups(0)[0]
 
     def parse_title(self, root):
+        '''
+        get the book title from the url
+        this title may be located in the <head> or in the <html> part
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_title(self, root)\n")
+
         title_node = root.xpath("//div [@class='livre_header_con']/h1/a")
         if not title_node:
             return None
@@ -244,6 +287,12 @@ class Worker(Thread):
         return title_text
 
     def parse_authors(self, root):
+        '''
+        get authors from the url, may be located in head (indirectly) or in the html part
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_authors(self, root)\n")
+
         node_authors = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/span[1]/a/span")
         if not node_authors:
             return
@@ -254,6 +303,12 @@ class Worker(Thread):
         return authors
 
     def parse_rating(self, root):
+        '''
+        get rating from the url located in the html part
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_rating(self, root)\n")
+
         #rating_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/span[2]/span[1]")
         rating_node = root.xpath('//span[@itemprop="aggregateRating"]/span[@itemprop="ratingValue"]')
         if rating_node:
@@ -266,6 +321,12 @@ class Worker(Thread):
             return eval(rating_text)
 
     def parse_comments(self, root):
+        '''
+        get resume in the html part, may need expantion
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_comments(self, root)\n")
+
         description_node = root.xpath('//div [@id="d_bio"]/span/a')
         if description_node:
             java = description_node[0].get('onclick')
@@ -281,6 +342,11 @@ class Worker(Thread):
             req.add_header('Accept', '*/*')
             handle = self.browser.open_novisit(req)
             comments = handle.read()
+
+            if debug:                                     # may be long
+                soup = BS(comments, "html5lib")
+                self.log.info("get details comments prettyfied :\n", soup.prettify())
+
             return comments.replace(b'\x92', b'\x27').replace(b'\x19', b'\x27').replace(b'\x9C', b'\x6f\x65').decode('latin-1', errors='replace')
         else :
             comments = ''
@@ -289,33 +355,47 @@ class Worker(Thread):
             return comments
 
     def parse_cover(self, root):
-        start = time.time()
+        '''
+        get cover address either from head or from html part
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_cover(self, root)\n")
+
+        if debug:
+            start = time.time()
+            self.log.info(self.who,"Temps après parse_cover 0 : ", time.time() - start)
+
         imgcol_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[1]/img")
-        self.log.info(self.who,"in parse_cover 0 : ", time.time() - start)
         if imgcol_node:
             url = imgcol_node[0].get('src')
             img_url = BASE_URL + url
-            self.log.info(self.who,"in parse_cover 1 : ", time.time() - start)
+            if debug: self.log.info(self.who,"Temps après parse_cover 1 : ", time.time() - start)
             if url.startswith('http'):
                 img_url = url
-                self.log.info(self.who,"in parse_cover 2 : ", time.time() - start)
+                if debug: self.log.info(self.who,"Temps après parse_cover 2 : ", time.time() - start)
             self.log.info('img_url :', img_url)
           # the following takes forever (amazon site?), let's decide url is correct.
-          # anyway when fetching cover this will be accessed in time (or not)
+          # anyway when fetching cover this will be accessed before timeout (or not)
             # try :
             #     info = self.browser.open_novisit(img_url, timeout=self.timeout).info()
-            #     self.log.info(self.who,"in parse_cover 3 : ", time.time() - start)
+            #     self.log.info(self.who,"Temps après parse_cover 3 : ", time.time() - start)
             # except :
             #     self.log.warning('Lien pour l\'image invalide : %s' % img_url)
             #     return None
             # #if int(info.getheader('Content-Length')) > 1000:
             # if int(info.get('Content-Length')) > 1000:
-            #     self.log.info(self.who,"in parse_cover 4 : ", time.time() - start)
+            #     self.log.info(self.who,"Temps après parse_cover 4 : ", time.time() - start)
             return img_url
             # else:
             #     self.log.warning('Lien pour l\'image invalide : %s' % img_url)
 
     def parse_meta(self, root):
+        '''
+        get publisher, isbn ref, publication date from html part
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_meta(self, root)\n")
+
         meta_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/div[1]")
         if meta_node:
             publisher_re = isbn_re = pubdate_re = publication = None
@@ -333,6 +413,12 @@ class Worker(Thread):
 
 
     def parse_tags(self, root):
+        '''
+        get tags from html part
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in parse_tags(self, root)\n")
+
         tags_node = root.xpath('//p[@class="tags"]/a[@rel="tag"]')
         if tags_node:
             tags_list = list()
@@ -343,14 +429,21 @@ class Worker(Thread):
                 return tags_list
 
     def _convert_date_text(self, date_text):
+        '''
+        utility to convert date from type string to type datetime
+        '''
+        debug=self.dbg_lvl & 2
+        self.log.info(self.who,"in _convert_date_text(self, date_text)\n")
+        if debug: self.log.info(self.who,"date_text : ", date_text)
+
         year = int(date_text[-4:])
         month = 1
         day = 1
         if len(date_text) > 4:
             text_parts = date_text[:len(date_text) - 5].partition(' ')
             month_name = text_parts[0]
-            month_dict = {"janvier":1, "f�vrier":2, "mars":3, "avril":4, "mai":5, "juin":6,
-                "juillet":7, "ao�t":8, "Septembre":9, "octobre":10, "novembre":11, "d�cembre":12}
+            month_dict = {"janvier":1, "février":2, "mars":3, "avril":4, "mai":5, "juin":6,
+                "juillet":7, "août":8, "Septembre":9, "octobre":10, "novembre":11, "décembre":12}
             month = month_dict.get(month_name, 2)
             if len(text_parts[2]) > 0:
                 day = int(re.match('([0-9]+)', text_parts[2]).groups(0)[0])

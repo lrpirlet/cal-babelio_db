@@ -409,9 +409,9 @@ class Babelio(Source):
 #
             #open('E:\\babelio.html', 'wb').write(raw)
 
-                if debug:                                     # may be long
-                    soup = BS(raw, "html5lib")
-                # log.info("get details raw prettyfied :\n", soup.prettify())
+                # if debug:                                     # may be long
+                #     soup = BS(raw, "html5lib")
+                #     log.info("get details raw prettyfied :\n", soup.prettify())
 
 #
 #   <td class="titre_livre">
@@ -447,7 +447,7 @@ class Babelio(Source):
         if debug: log.info(" matches : ", matches)
 
         from calibre_plugins.babelio.worker import Worker
-        workers = [Worker(url, result_queue, br, log, i, self) for i, url in
+        workers = [Worker(url, result_queue, br, log, i, self, self.dbg_lvl) for i, url in
                 enumerate(matches)]
 
         for w in workers:
@@ -491,7 +491,11 @@ class Babelio(Source):
             return
 
     def get_cached_cover_url(self, identifiers):
-        if JSONConfig('plugins/Babelio').get('cover', False) == False:
+        '''
+        retrieve url address of the cover associated with NAME_id or ISBN
+        '''
+        # if JSONConfig('plugins/Babelio').get('cover', False) == False:
+        if not self.with_cover:
             return None
         url = None
         bbl_id = identifiers.get('babelio', None)
@@ -514,7 +518,8 @@ class Babelio(Source):
         debug=self.dbg_lvl & 1
 
         if debug: log.info("\n In download_cover ")
-        if JSONConfig('plugins/Babelio').get('cover', False) == False:
+        # if JSONConfig('plugins/Babelio').get('cover', False) == False:
+        if not self.with_cover:
             return
         cached_url = self.get_cached_cover_url(identifiers)
         log.info('cache :', cached_url)
