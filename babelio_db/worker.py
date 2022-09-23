@@ -137,7 +137,7 @@ class Worker(Thread):
 
         if debug:                                     # may be long
             soup = BS(raw, "html5lib")
-            self.log.info(self.who,"get details raw prettyfied :\n", soup.prettify())
+            # self.log.info(self.who,"get details raw prettyfied :\n", soup.prettify())
 
         raw = raw.decode('latin-1', errors='replace')
 
