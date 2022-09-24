@@ -4,7 +4,7 @@
 # Ce travail basé sur celui de VdF pour babelio est entrepris pour essayer de resoudre les multiples petits problèmes
 # que je rencontre...
 #
-#y pas de reference ni de moyen d'ajouter un id...
+# Il n'y pas de reference ni de moyen d'ajouter un id...
 #   get_book_url : used by calibre to convert the identifier to a URL...
 #   id_from_url : takes an URL and extracts the identifier details...
 #
@@ -119,17 +119,12 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
         log.info(who, "url : ", url)
         log.info(who, "rkt : ", rkt)
 
-  # Note: le SEUL moment ou on doit passer d'un encodage des characteres a un autre est quand on reçoit des donneées
+  # Note: le SEUL moment ou on doit passer d'un encodage des charactères à un autre est quand on reçoit des donneées
   # d'un site web... tout, absolument tout, est encodé en uft_8 dans le plugin... J'ai vraiment peiné a trouver l'encodage
   # des charracteres qui venaient de noosfere... Meme le decodage automatique se plantait...
   # J'ai du isoler la création de la soup du decodage dans la fonction ret_soup().
   # variable "from_encoding" isolée pour trouver quel est l'encodage d'origine...
   #
-  # variable "from_encoding" isolated to find out what is the site character encoding... The announced charset is WRONG
-  # Even auto decode did not always work... I knew that my setup was wrong but it took me a while...
-  # Maybe I should have tried earlier the working solution as the emitting node is MS
-  # (Thanks MS!!! and I mean it as I am running W10.. :-) but hell, proprietary standard is not standard)...
-  # It decode correctly to utf_8 with windows-1252 forced as from_encoding
   # from_encoding="windows-1252"
 
     log.info(who, "Accessing url : ", url)
@@ -143,7 +138,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
 
     sr, url_ret = resp[0], resp[1]
 
-    soup = BS(sr, "html5lib")       #, from_encoding=from_encoding) # if needed
+    soup = BS(sr, "html5lib")       #, from_encoding=from_encoding) # needed when charset value is a lie
     if debug:
 #        log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
         log.info(who,"(ret_soup) return (soup,sr.geturl()) from ret_soup\n")
@@ -228,24 +223,18 @@ class Babelio(Source):
     ID_NAME = 'bbl_id'
     BASE_URL = 'https://www.babelio.com'
 
-    # def config_widget(self):
-    #     print('config widget')
-    #     from calibre_plugins.babelio.config import ConfigWidget
-    #     return ConfigWidget(self)
-
-    # print('config widget')
-
+  # configuration du plugin
   # Since the babelio_db is written in French for French talking poeple, I
   # took the liberty to write the following information in French.
 
     config_help_message = '<p>'+_(" Babelio est un réseau social dédié aux livres et aux lecteurs. Il permet de créer"
                                   " et d’organiser sa bibliothèque en ligne, d’obtenir des informations sur des oeuvres,"
-                                  " de partager et d’échanger ses goûts et impressions littéraires avec d’autres lecteurs."
+                                  " de partager et d’échanger ses goûts et impressions littéraires avec d’autres lecteurs.<br><br>"
                                   " Il est a noter que certaines images de couvertures ne sont PAS localisée sur le site"
-                                  " même de Babelio... des temps extrèmement longs peuvent en être engendré."
+                                  " même de Babelio... des temps extrèmement longs peuvent en être engendré.<br><br>"
                                   " Notez qu'une requête qui génère plus de 12 resultats se verra tronquée à 12..."
                                   " Il est possible de modifier ce comportement, mais au risque d'être banni de Babelio..."
-                                  " Je déconseille (vous êtes prévenus...)"
+                                  " Je déconseille <strong>(vous êtes prévenus...)</strong>"
                                   )
 
     options = (
@@ -290,9 +279,9 @@ class Babelio(Source):
     def get_book_url(self, identifiers):
         '''
         get_book_url : used by calibre to convert the identifier to a URL...
-        return an url if bbl_id exists and is valid
-        for this to work, we need to define or find the minimum info to build an relevant url
-        today seems to be: URL_BASE+"nom-de-l-auteur-le-titre-du-livre/<une serie de chiffres>"
+        return an url if bbl_id exists and is valid.
+        For this to work, we need to define or find the minimum info to build a relevant url.
+        Today this seems to be: URL_BASE+"nom-de-l-auteur-le-titre-du-livre/<une serie de chiffres>"
         that is: BASE_URL + "/livres/" + bbl_id or just: https://www.babelio.com/livres/ + bbl_id
         example over an url :
         https://www.babelio.com/livres/Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832
@@ -377,8 +366,6 @@ class Babelio(Source):
         query = None
         matches = []
         br = self.browser
-        # cj = http.cookiejar.LWPCookieJar()
-        # br.set_cookiejar(cj)
 
       # on a des identifiers
         if identifiers:
@@ -403,39 +390,25 @@ class Babelio(Source):
                 query = self.create_query(log, title=title, authors=authors)
                 if query is None:
                     log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
-                    log.error("Verifier la validité des ids soumis (ISBN, babelio).")
+                    log.error("Verifier la validité des ids soumis (ISBN, babelio)")
+                    log.error("ainsi que la bonne orthographe des auteurs et du titre")
                     return
                 log.info('from authors and/or title got query : ', query)
             response = br.open_novisit(query, timeout=timeout)
 
             soup=ret_soup(log, self.dbg_lvl, br, query)[0]         #lrp
 
-            try:
-                raw = response.read().strip()
-# lrp: overkill
-#            raw = raw.decode('latin-1', errors='replace')
-# la seule difference significative est dans un texte dont on ne se sert pas...
-#
-# <       Vous ne trouvez pas le livre ou l’édition que vous recherchiez ?
-# ---
-# >       Vous ne trouvez pas le livre ou lédition que vous recherchiez ?
-#
-
-            #open('E:\\babelio.html', 'wb').write(raw)
-
-#
-#   <td class="titre_livre">
-#   est unique par livre correspondant à la recherche
-#   et sous cette ref <a class="titre_v2" ... donne les refs
-#
-                if not raw:
-                    log.error('Pas de résultat pour la requête : ', query)
-                    return
-                root = fromstring(clean_ascii_chars(raw))
-            except:
-                msg = 'Impossible de parcourir la page babelio avec la requête : %r'% query
-                log.exception(msg)
-                return msg
+            #    This is handled in ret_soup()
+            # try:
+            #     raw = response.read().strip()
+            #     if not raw:
+            #         log.error('Pas de résultat pour la requête : ', query)
+            #         return
+            #     root = fromstring(clean_ascii_chars(raw))
+            # except:
+            #     msg = 'Impossible de parcourir la page babelio avec la requête : %r'% query
+            #     log.exception(msg)
+            #     return msg
             self._parse_search_results(log, title, authors, matches, soup, br)
 
         if abort.is_set():
@@ -454,8 +427,8 @@ class Babelio(Source):
             log.error('Pas de résultat pour la requête : ', query)
             return
 
-        if len(matches) > 12:
-            lrp=stopstopstop
+        if len(matches) > 12:       # to be deleted later, catch any over the limit matches
+            lrp=stopstopstop        # lrp does not exist (mais si, j'existe... balot... Balot toi même...)
         if debug: log.info(" matches : ", matches)
 
         from calibre_plugins.babelio.worker import Worker
@@ -464,10 +437,9 @@ class Babelio(Source):
 
         for w in workers:
             w.start()
-            # Don't send all requests at the same time
-            time.sleep(0.1)
+            time.sleep(0.1)         # Don't send all requests at the same time
 
-        while not abort.is_set():
+        while not abort.is_set():   # sit and relax till all workers are done or aborted
             a_worker_is_alive = False
             for w in workers:
                 w.join(0.1)
@@ -478,7 +450,7 @@ class Babelio(Source):
             if not a_worker_is_alive:
                 break
 
-        return None
+        return None                 # job done
 
     def _parse_search_results(self, log, orig_title, orig_authors, matches, soup, br):
         '''
@@ -495,13 +467,16 @@ class Babelio(Source):
             log.info("(inutilisé) orig_authors  : ", orig_authors)
             log.info("matches                   : ", matches)
 
-        # titre_res = root.xpath(".//*[@id='page_corps']/div/div[4]/div[2]/table/tbody/tr/td[2]/a[1]")
+      #   <td class="titre_livre">
+      #   est unique par livre correspondant à la recherche
+      #   et sous cette ref <a class="titre_v2" ... donne les refs
 
       # there could be several matches just create a book with title "oedipe roi" and no author...
       # run edit metadata to find... a lot of possibilities... and get banned for a week because
       # too many hits in too short a time...
+
         count=0
-        while count < 3 :                                                        # loop over first 3 pages (maximum)
+        while count < 3 :                                                       # loop over first 3 pages (maximum)
             x=soup.select('.titre_v2')                                          #
             if len(x):                                                          # loop over all html addresses tied with titre_v2 (all book ref)
                 for i in range(len(x)):                                         # !!CAUTION!! each page may have up to 10 books
@@ -515,14 +490,6 @@ class Babelio(Source):
             soup=ret_soup(log, self.dbg_lvl, br, lrpurl)[0]                     # get new soup content and loop again
             time.sleep(0.2)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
-        # if debug:
-        #     log.info('type(titre_res) : ', type(titre_res))
-        #     log.info("titre_res[0]    : ", titre_res[0].get('href'))
-
-        # if len(titre_res) == 0 :
-        #     return
-        # else :
-        #     matches.append(Babelio.BASE_URL + titre_res[0].get('href'))
         if debug:
             log.info("matches at return time : ", matches)
             log.info("nombre de matches      : ", len(matches))
@@ -541,7 +508,6 @@ class Babelio(Source):
         '''
         retrieve url address of the cover associated with NAME_id or ISBN
         '''
-        # if JSONConfig('plugins/Babelio').get('cover', False) == False:
         if not self.with_cover:
             return None
         url = None
@@ -565,7 +531,7 @@ class Babelio(Source):
         debug=self.dbg_lvl & 1
 
         if debug: log.info("\n In download_cover ")
-        # if JSONConfig('plugins/Babelio').get('cover', False) == False:
+
         if not self.with_cover:
             return
         cached_url = self.get_cached_cover_url(identifiers)
@@ -583,20 +549,19 @@ class Babelio(Source):
                     results.append(rq.get_nowait())
                 except Empty:
                     break
-            # results.sort(key=self.identify_results_keygen(
-                # title=title, authors=authors, identifiers=identifiers))
             for mi in results:
                 cached_url = self.get_cached_cover_url(mi.identifiers)
                 if cached_url is not None:
                     break
+
         if cached_url is None:
             log.info('Pas de couverture trouvée.')
             return
 
         if abort.is_set():
             return
-        br = self.browser
 
+        br = self.browser
         log.info('On télécharge la couverture depuis :', cached_url)
         try:
             cdata = br.open_novisit(cached_url, timeout=timeout).read()
