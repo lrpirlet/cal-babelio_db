@@ -194,14 +194,15 @@ class Babelio(Source):
                'debug_level',
                'number',
                7,
-               _("Verbosité du journal, de 0 à 7"),                                                    # verbosity of the log
+               _("Verbosité du journal, de 0 à 15"),                                                   # verbosity of the log
                _("Le niveau de verbosité:<br>"                                                         # the level of verbosity.
                  " O un minimum de rapport,<br>"                                                       # value 0 will output the minimum,
                  " 1 rapport étendu de __init__,<br>"                                                  # 1 debug messages of __init__
                  " 2 rapport étendu de worker,<br>"                                                    # 2 debug messages of worker
                  " 4 rapport étendu des annexes...<br>"                                                # 4 debug level of accessory code...
-                 " La somme 3, 5 ou 7 peut être introduite, ainsi 7 donne un maximum de rapport.<br>"  # 3, 5 or 7 is the sum of the value defined above.
-                 " Note: mettre la verbosité = 7 pour rapport d'erreur")            # In fact it is a bitwise flag spread over the last 3 bits of debug_level
+                 " 8 timing... <br>"                                                                  # 8 debug level for timing
+                 " La somme 3, 5, 7 ou 15 peut être introduite, ainsi 15 donne un maximum de rapport.<br>"  # 3, 5 or 7 is the sum of the value defined above.
+                 " Note: mettre la verbosité = 15 pour rapport d'erreur")            # In fact it is a bitwise flag spread over the last 4 bits of debug_level
                ),
         Option(
                'Cover_wanted',

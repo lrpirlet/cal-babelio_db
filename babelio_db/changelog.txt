@@ -119,8 +119,8 @@ introduis
 --------------------------------------------------------------------
 Le plugin est vraiment très lent ce soir... Ajoute des timers pour déterminer où est le ralentissement.
 Il semble qu'accéder à l'image peut être extrêmement long quand cette image n'est pas sur le site de Babelio..
-En fait, accéder à l'image dans la méthode parse_cover() n'est pas vraiment utile... On peut voir que
-l'image est invalide au moment d'en faire le téléchargement...
+En fait, accéder à l'image dans la méthode parse_cover() de worker.py n'est pas vraiment utile...
+On peut voir que l'image est invalide au moment d'en faire le téléchargement...
 Supprimer ce code de vérification accélère beaucoup le plugin... sans nuire aucunement à la qualité.
 --------------------------------------------------------------------
 retravaille identify() pour réagir sur les identifiers avant de réagir sur tire/auteurs
