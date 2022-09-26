@@ -164,7 +164,7 @@ class Worker(Thread):
         #    self.log.info(self.who,"get details rawbs prettyfied :\n", rawbs.prettify())
             # resultat (court extrait...)
             # Poussé par lamour dune jolie femme, il simprovisera un moment professeur dans une école
-        #    self.log.info(self.who,"get details soup prettyfied :\n", soup.prettify())
+            self.log.info(self.who,"get details soup prettyfied :\n", soup.prettify())
             # resultat (court extrait...)
             # Poussé par l’amour d’une jolie femme, il s’improvisera un moment professeur dans une école
             pass
@@ -176,19 +176,21 @@ class Worker(Thread):
             msg = 'Impossible de parcourir la page : %r' % self.url
             self.log.exception(msg)
             return
-        self.parse_details(root, soup)
 
         if self.debugt:
             self.log.info(self.who,"Temps après fromstring() ... : ", time.time() - start)
+
+        self.parse_details(root, soup)
 
     def parse_details(self, root, soup):
         '''
         gathers all details needed to complete the calibre metadata, handels
         errors and sets mi
         '''
-        self.log.info(self.who,"in parse_details(self, root)\n")
+        self.log.info(self.who,"in parse_details(self, root, soup)\n")
         if self.debug:
             self.log.info(self.who,"type(root) : ", type(root))
+            self.log.info(self.who,"type(soup) : ", type(soup))
         if self.debugt:
             start = time.time()
             self.log.info(self.who,"in parse_details(), new start : ", start)
@@ -200,12 +202,13 @@ class Worker(Thread):
             bbl_title = None
         bbl_title=full_title[0]
         bbl_series=full_title[1]
+        bbl_series_seq=full_title[2]
 
         if self.debugt:
             self.log.info(self.who,"Temps après parse_title_series() ... : ", time.time() - start)
 
         try:
-            authors = self.parse_authors(root)
+            authors = self.parse_authors(root, soup)
         except:
             self.log.info('Erreur en cherchant l\'auteur dans: %r' % self.url)
             authors = []
@@ -218,8 +221,10 @@ class Worker(Thread):
             self.log.error('Titre: %r Auteurs: %r' % (bbl_title, authors))
             # return
 
+
         mi = Metadata(bbl_title, authors)
-        mi.set_identifier('babelio', self.bbl_id)
+
+
         try:
             isbn, publisher, pubdate = self.parse_meta(root)
             if isbn:
@@ -235,7 +240,7 @@ class Worker(Thread):
             self.log.info(self.who,"Temps après parse_meta() ... : ", time.time() - start)
 
         try:
-            mi.rating = self.parse_rating(root)
+            mi.rating = self.parse_rating(root, soup)
         except:
             self.log.exception('Erreur en cherchant la note dans : %r' % self.url)
 
@@ -282,6 +287,15 @@ class Worker(Thread):
                 self.plugin.cache_isbn_to_identifier(self.isbn, self.bbl_id)
             if self.cover_url:
                 self.plugin.cache_identifier_to_cover_url(self.bbl_id, self.cover_url)
+
+      # set the matadata fields (in the order they have been calculated except for title and authors)
+
+        # mi = Metadata(bbl_title, authors) laissé au dessu pour eviter errors...
+        mi.series = bbl_series
+        if bbl_series:
+            mi.series_index = bbl_series_seq
+
+        mi.set_identifier('babelio', self.bbl_id)
         mi.language = 'fr'
         mi.authors = fixauthors(mi.authors)
         mi.tags = list(map(fixcase, mi.tags))
@@ -322,67 +336,97 @@ class Worker(Thread):
 
       # seems that the title of babelio is in fact of the form "la serie - editeur, tome 55 : le titre"
       # editeur seems to be preceded by - it can be missing
-      # tome <num> seems to be surrounded by , and :
-      # so we can extract the title always, and the series if babelio title contains ':'
-      # if series exist the we can look for tome...
-        if soup.select_one(".livre_header_con"):
-            if self.debug:
-                title_soup=soup.select_one(".livre_header_con").select_one("a")
-                self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify())
+      # tome <num> seems to be surrounded by , or - and :
+      # so we can extract the title always, and the series if babelio title contains ':' and tome
 
-            tmp_ttl=str(soup.select_one(".livre_header_con").select_one("a").string).strip()
+      # if soup.select_one(".livre_header_con") fails an exception wil be raised
+        if self.debug:
+            title_soup=soup.select_one(".livre_header_con").select_one("a")
+            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify())
+        tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
+        bbl_series, bbl_series_seq ="", ""
+        if ":" and "tome" in tmp_ttl:
+            bbl_title=tmp_ttl.split(":")[-1].strip()
+            bbl_series=tmp_ttl.replace(" -", ",").split(":")[0].split(",")[0].strip()
+            if bbl_series:
+                bbl_series_seq = tmp_ttl.split("tome")[-1].split(":")[0].strip()
+                if bbl_series_seq.isnumeric:
+                    bbl_series_seq = float(bbl_series_seq)
+                else:
+                    bbl_series_seq = 0.0
+        else:
+            bbl_title=tmp_ttl.strip()
 
-            bbl_series, series_seq ="", ""       # serie_seq = 999 means manual check is required
-            if ":" and "tome" in tmp_ttl:
-                bbl_title=tmp_ttl.split(":")[-1].strip()
-                bbl_series=tmp_ttl.replace("-", ",").split(":")[0].split(",")[0].strip()
-                if bbl_series:
-                    series_seq = tmp_ttl.split("tome")[-1].split(":")[0].strip()
-            else:
-                bbl_title=tmp_ttl.strip()
 
         if self.debug:
             # self.log.info(self.who,"title_text is : ", title_text)
-            self.log.info(self.who,"tmp_ttl is    : ", tmp_ttl)
-            self.log.info(self.who,"bbl_title is  : ", bbl_title)
-            self.log.info(self.who,"bbl_series is     : ", bbl_series)
-            self.log.info(self.who,"series_seq is : ", series_seq)
+            self.log.info(self.who,"tmp_ttl         : ", tmp_ttl)
+            self.log.info(self.who,"bbl_title       : ", bbl_title)
+            self.log.info(self.who,"bbl_series      : ", bbl_series)
+            self.log.info(self.who,"bbl_series_seq  : ", bbl_series_seq)
 
-        return (bbl_title, bbl_series)
+        return (bbl_title, bbl_series, bbl_series_seq)
 
-    def parse_authors(self, root):
+    def parse_authors(self, root, soup):
         '''
         get authors from the url, may be located in head (indirectly) or in the html part
         '''
-        debug=self.dbg_lvl & 2
-        debugt=self.dbg_lvl & 8
-        self.log.info(self.who,"in parse_authors(self, root)\n")
+        self.log.info(self.who,"in parse_authors(self, root, soup)\n")
+        if self.debug:
+            # self.log.info(self.who,"type(root) : ", type(root))
+            self.log.info(self.who,"type(soup) : ", type(soup))
 
-        node_authors = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/span[1]/a/span")
-        if not node_authors:
-            return
-        authors_html = tostring(node_authors[0], method='text', encoding='unicode').replace('\n', '').strip()
-        authors = []
-        for a in authors_html.split(','):
-            authors.append(a.strip())
-        return authors
+      # if soup.select_one(".livre_con") failms then it will raise an exception
+        authors_soup=soup.select_one(".livre_con").select('span[itemprop="author"]')
+        bbl_autors=[]
+        for i in range(len(authors_soup)):
+          # if self.debug: self.log.info(self.who,"authors_soup prettyfied #",i," :\n", authors_soup[i].prettify())
+            tmp_thrs = authors_soup[i].select_one('span[itemprop="name"]').text.split()
+            thrs=" ".join(tmp_thrs)
+          # if self.debug: self.log.info(self.who,"tmp_thrs : ",tmp_thrs, thrs)
+            bbl_autors.append(thrs)
+        if self.debug:
+            self.log.info(self.who,"bbl_autors : ", bbl_autors)
 
-    def parse_rating(self, root):
+        # node_authors = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/span[1]/a/span")
+        # if not node_authors:
+        #     return
+        # authors_html = tostring(node_authors[0], method='text', encoding='unicode').replace('\n', '').strip()
+        # authors = []
+        # for a in authors_html.split(','):
+        #     authors.append(a.strip())
+
+        if self.debug:
+            # self.log.info(self.who,"return authors", authors)
+            self.log.info(self.who,"return bbl_autors", bbl_autors)
+
+        return bbl_autors
+
+    def parse_rating(self, root, soup):
         '''
         get rating from the url located in the html part
         '''
-        self.log.info(self.who,"in parse_rating(self, root)\n")
+        self.log.info(self.who,"in parse_rating(self, root, soup)\n")
+
+        rating_soup=soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
+      # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify())
+        bbl_rating = float(rating_soup.text.strip())
+
+        if self.debug:
+            self.log.info(self.who,'bbl_rating : ', bbl_rating)
+
+        return bbl_rating
 
         #rating_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/span[2]/span[1]")
-        rating_node = root.xpath('//span[@itemprop="aggregateRating"]/span[@itemprop="ratingValue"]')
-        if rating_node:
-            rating_text = tostring(rating_node[0], method='text', encoding=str)
-            rating_text = rating_text.replace('/', '')
-            self.log.info('rating :', eval(rating_text))
-            rating_value = float(rating_text) / 5 * 100
-            if rating_value >= 100:
-                return rating_value / 100
-            return eval(rating_text)
+        # rating_node = root.xpath('//span[@itemprop="aggregateRating"]/span[@itemprop="ratingValue"]')
+        # if rating_node:
+        #     rating_text = tostring(rating_node[0], method='text', encoding=str)
+        #     rating_text = rating_text.replace('/', '')
+        #     self.log.info('rating :', eval(rating_text))
+        #     rating_value = float(rating_text) / 5 * 100
+        #     if rating_value >= 100:
+        #         return rating_value / 100
+        #     return eval(rating_text)
 
     def parse_comments(self, root):
         '''
