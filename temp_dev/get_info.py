@@ -564,7 +564,7 @@ header .menu .menu_item_decouvrir_con
           <a class="tiny_links dark" href="/editeur/810/Gallimard">
            Gallimard
           </a>
-          (28/02/2013)
+          (28/02/-1)
          </div>
          <span itemprop="aggregateRating" itemscope="" itemtype="https://schema.org/AggregateRating" style="position: relative;top: -5px;margin-left:4px;">
           <span class="texte_t2 rating" itemprop="ratingValue">
@@ -2547,26 +2547,77 @@ var captureOutboundLink = function(url) {
 '''
 
 from bs4 import BeautifulSoup as BS
+import datetime
 
 soup = BS(info, "html5lib" )
 
 title_soup=soup.select_one(".livre_header_con").select_one("a")
-print("title_soup prettyfied :\n", title_soup.prettify())
+# print("title_soup prettyfied :\n", title_soup.prettify())
 tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
-print("tmp_ttl : ",tmp_ttl)
+print("tmp_ttl : ",tmp_ttl, "\n", 25*"+-")
 
 authors_soup=soup.select_one(".livre_con").select('span[itemprop="author"]')
 bbl_autors=[]
 for i in range(len(authors_soup)):
-    print("authors_soup prettyfied N°",i," :\n", authors_soup[i].prettify())
+    # print("authors_soup prettyfied N°",i," :\n", authors_soup[i].prettify())
     tmp_thrs = authors_soup[i].select_one('span[itemprop="name"]').text.split()
     thrs=" ".join(tmp_thrs)
-    print("tmp_thrs : ",tmp_thrs, thrs)
-    print(25*"*")
+    # print("tmp_thrs : ",tmp_thrs, thrs)
+    # print(25*"*")
     bbl_autors.append(thrs)
-print("bbl_autors : ", bbl_autors)
+print("bbl_autors : ", bbl_autors, "\n", 25*"+-")
 
 rating_soup=soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
-print("rating_soup prettyfied :\n",rating_soup.prettify())
+# print("rating_soup prettyfied :\n",rating_soup.prettify())
 bbl_rating = float(rating_soup.text.strip())
-print('bbl_rating : ', bbl_rating)
+print('bbl_rating : ', bbl_rating, "\n", 25*"+-")
+
+tag_soup=soup.select_one('.tags')
+# print("tag_soup prettyfied :\n",tag_soup.prettify())
+tag_soup = soup.select_one('.tags').select('a')
+bbl_tags=[]
+for i in range(len(tag_soup)):
+    # print("type(tag_soup[i])", type(tag_soup[i]))
+    # print("tag_soup prettyfied N°",i," :\n", tag_soup[i].prettify())
+    tmp_tg = tag_soup[i].text.strip()
+    # print(tmp_tg)
+    bbl_tags.append(tmp_tg)
+    # print(bbl_tags)
+print('bbl_tags : ', bbl_tags, "\n", 25*"+-")
+
+# when a class contains white characters use a dot instead (blank means 2 classes for css selector)
+meta_soup = soup.select_one(".livre_refs.grey_light")
+print("meta_soup prettyfied :\n",meta_soup.prettify())
+print("meta_soup prettyfied :\n",meta_soup.text)
+bbl_publisher = meta_soup.select_one('a[href^="/editeur"]').text.strip()
+print("bbl_publisher processed : ", bbl_publisher)
+tmp_mt = []
+for i in (meta_soup.stripped_strings):
+    print(str(i))
+    tmp_mt.append(str(i))
+print(tmp_mt)
+bbl_isbn, bbl_pubdate = None, None
+for mta in (meta_soup.stripped_strings):
+    if "EAN" in mta:
+        tmp_sbn = mta.split()
+        bbl_isbn = tmp_sbn[-1]
+        print("bbl_isbn processed : ", bbl_isbn)
+    elif "/" in mta:
+        tmp_pbdt = mta.strip().replace("(","").replace(")","").split("/")
+        print("tmp_pbdt : ", tmp_pbdt)
+        for i in range(len(tmp_pbdt)):
+            if tmp_pbdt[i].isnumeric:
+                if i==0 and int(tmp_pbdt[i]) <= 31: continue
+                elif i==1 and int(tmp_pbdt[i]) <= 12 : continue
+                elif i==2 and int(tmp_pbdt[i]) > 1700:
+                    bbl_pubdate = datetime.datetime.strptime(tmp_pbdt,"%j/%m/%Y")
+                    print(tmp_pbdt[i])
+            print("ya l'dat ki kolpa")
+
+
+
+        # if tmp_pbdt[0]
+        # bbl_pubdate = datetime.datetime.strptime(tmp_pbdt,"%j/%m/%Y")
+        # print("bbl_pubdate processed : ", bbl_pubdate)
+
+
