@@ -2587,8 +2587,8 @@ print('bbl_tags : ', bbl_tags, "\n", 25*"+-")
 
 # when a class contains white characters use a dot instead (blank means 2 classes for css selector)
 meta_soup = soup.select_one(".livre_refs.grey_light")
-print("meta_soup prettyfied :\n",meta_soup.prettify())
-print("meta_soup prettyfied :\n",meta_soup.text)
+# print("meta_soup prettyfied :\n",meta_soup.prettify())
+# print("meta_soup prettyfied :\n",meta_soup.text)
 bbl_publisher = meta_soup.select_one('a[href^="/editeur"]').text.strip()
 print("bbl_publisher processed : ", bbl_publisher)
 tmp_mt = []
@@ -2613,11 +2613,25 @@ for mta in (meta_soup.stripped_strings):
                     bbl_pubdate = datetime.datetime.strptime(tmp_pbdt,"%j/%m/%Y")
                     print(tmp_pbdt[i])
             print("ya l'dat ki kolpa")
+print('meta done ', "\n", 25*"+-")
+
+cover_soup = soup.select_one('link[rel="image_src"]')
+print("cover_soup prettyfied :\n", cover_soup.prettify())
+bbl_cover = cover_soup['href']
+print('bbl_cover processed ', "\n", 25*"+-")
+
+comments_soup = soup.select_one('.livre_resume')
+# print("comments prettyfied:\n", comments_soup.prettify())
+if comments_soup.select_one('a[onclick]'):
+    print("onclick : ",comments_soup.select_one('a[onclick]')['onclick'])
+    tmp_nclck = comments_soup.select_one('a[onclick]')['onclick'].split("(")[-1].split(")")[0].split(",")
+    rkt = {"type":tmp_nclck[1],"id_obj":tmp_nclck[2]}
+    print("rkt",rkt)
+    print("Now comments_soup = ret_soup(log, dbg_lvl, br, url, rkt=rkt, who=who)")
+else:
+   tmp_cmmnts = comments_soup.text
+   print("tmp_cmmnts :\n", tmp_cmmnts)
 
 
-
-        # if tmp_pbdt[0]
-        # bbl_pubdate = datetime.datetime.strptime(tmp_pbdt,"%j/%m/%Y")
-        # print("bbl_pubdate processed : ", bbl_pubdate)
 
 

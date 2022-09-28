@@ -245,17 +245,6 @@ class Worker(Thread):
         if self.debugt:
             self.log.info(self.who,"Temps après parse_rating() ... : ", time.time() - start)
 
-      # find the comments and format them in a fixed structure for the catalog
-        try:
-            mi.comments = self.parse_comments(root).replace('\r\n', '').replace('\r', '').strip()
-            if mi.comments == '' :
-                self.log.info('Pas de commentaires pour ce livre')
-        except:
-            self.log.exception('Erreur en cherchant le résumé : %r' % self.url)
-
-        if self.debugt:
-            self.log.info(self.who,"Temps après parse_comments() ... : ", time.time() - start)
-
       # get the tags.. OK
         try:
             bbl_tags = self.parse_tags(soup)
@@ -267,29 +256,47 @@ class Worker(Thread):
         if self.debugt:
             self.log.info(self.who,"Temps après parse_tags() ... : ", time.time() - start)
 
-      # get the cover address, set the cache address
-        if self.with_cover :
+      # get the cover address, set the cache address.. ok
+        if self.with_cover:
             try:
-                bbl_cover_url = self.parse_cover(root)
+                bbl_cover_url = self.parse_cover(soup)
             except:
                 self.log.exception('Erreur en cherchant la couverture dans : %r' % self.url)
-
+                bbl_cover_url = None
+            if bbl_cover_url:       # cache cover info ONLY if cover valid and desired
+                if self.bbl_id:
+                    if bbl_isbn:
+                        self.plugin.cache_isbn_to_identifier(bbl_isbn, self.bbl_id)
+                    if bbl_cover_url:
+                        self.plugin.cache_identifier_to_cover_url(self.bbl_id, bbl_cover_url)
         else :
-            self.log.info('Téléchargement de la couverture désactivé')
-            bbl_cover_url = None
-        mi.has_cover = bool(bbl_cover_url)
+          self.log.info('Téléchargement de la couverture désactivé')
+          bbl_cover_url = None
 
         if self.debugt:
             self.log.info(self.who,"Temps après parse_cover() ... : ", time.time() - start)
 
-        if self.bbl_id:
-            if bbl_isbn:
-                self.plugin.cache_isbn_to_identifier(bbl_isbn, self.bbl_id)
-            if bbl_cover_url:
-                self.plugin.cache_identifier_to_cover_url(self.bbl_id, bbl_cover_url)
+      # find the comments..  OK
+      # and format them in a fixed structure for the catalog... bof
+      # I just extract the text and it is ok but formating lost...
+        comments = None
+        try:
+            # mi.comments = self.orig_parse_comments(root).replace('\r\n', '').replace('\r', '').strip()
+            # if mi.comments == '' :
+            #     self.log.info('Pas de commentaires pour ce livre')
+
+            comments = self.parse_comments(soup)
+            if self.debug: self.log.info('comments :\n', comments)
+            mi.comments=comments
+            if not comments:
+                self.log.info('Pas de résumé pour ce livre')
+        except:
+            self.log.exception('Erreur en cherchant le résumé : %r' % self.url)
+
+        if self.debugt:
+            self.log.info(self.who,"Temps après parse_comments() ... : ", time.time() - start)
 
       # set the matadata fields
-
         # mi = Metadata(bbl_title, bbl_authors) laissé au dessus pour eviter errors...
         mi.series = bbl_series
         if bbl_series:
@@ -301,10 +308,12 @@ class Worker(Thread):
             mi.publisher = bbl_publisher
         if bbl_pubdate :
             mi.pubdate = bbl_pubdate
+        mi.has_cover = bool(bbl_cover_url)
         mi.set_identifier('babelio', self.bbl_id)
         mi.language = 'fr'
         mi.tags = bbl_tags
         mi.isbn = check_isbn(mi.isbn)
+        # mi.comments = bbl_comments
 
         self.result_queue.put(mi)
 
@@ -343,7 +352,7 @@ class Worker(Thread):
       # so we can extract the title always, and the series if babelio title contains both ':' and tome
       # series_seq is found just after tome and is numeric...
 
-      # if soup.select_one(".livre_header_con") fails an exception will be raised
+      # if soup.select_one(".livre_header_con") fails, an exception will be raised
         if self.debug:
             title_soup=soup.select_one(".livre_header_con").select_one("a")
             self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify())
@@ -380,7 +389,7 @@ class Worker(Thread):
         if self.debug:
             self.log.info(self.who,"type(soup) : ", type(soup))
 
-      # if soup.select_one(".livre_con") fails then it will raise an exception
+      # if soup.select_one(".livre_con") fails, an exception will be raised
         authors_soup=soup.select_one(".livre_con").select('span[itemprop="author"]')
         bbl_autors=[]
         for i in range(len(authors_soup)):
@@ -405,7 +414,7 @@ class Worker(Thread):
         '''
         self.log.info(self.who,"in parse_rating(self, soup)\n")
 
-      # if soup.select_one('span[itemprop="aggregateRating"]') fails, that will raise an exception
+      # if soup.select_one('span[itemprop="aggregateRating"]') fails, an exception will be raised
         rating_soup=soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
       # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify())
         bbl_rating = float(rating_soup.text.strip())
@@ -414,60 +423,96 @@ class Worker(Thread):
             self.log.info(self.who,'parse_rating() returns bbl_rating : ', bbl_rating)
         return bbl_rating
 
-    def parse_comments(self, root):
+    def parse_comments(self,soup):
         '''
-        get resume in the html part, may need expantion
+        get resume from soup, may need access to the page again.
+        Returns it with at title, html formatted.
         '''
         self.log.info(self.who,"in parse_comments(self, root)\n")
 
-        description_node = root.xpath('//div [@id="d_bio"]/span/a')
-        if description_node:
-            java = description_node[0].get('onclick')
-            hash_url = re.search(r',([0-9]+?),([0-9]*)\)', java)
-            comment_url = BASE_URL + '/aj_voir_plus_a.php'
-            data = urllib.parse.urlencode({'type':hash_url.group(1), 'id_obj':hash_url.group(2) })
-            req = mechanize.Request(comment_url, data)
-            req.add_header('X-Requested-With', 'XMLHttpRequest')
-            req.add_header('Referer', self.url)
-            req.add_header('Host', 'www.babelio.com')
-            req.add_header('Connection', 'Keep-Alive')
-            req.add_header('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')
-            req.add_header('Accept', '*/*')
-            handle = self.browser.open_novisit(req)
-            comments = handle.read()
+        comments_soup = soup.select_one('.livre_resume')
+      # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify())
+        if comments_soup.select_one('a[onclick]'):
+            if self.debug:
+                self.log.info(self.who,"onclick : ",comments_soup.select_one('a[onclick]')['onclick'])
+            tmp_nclck = comments_soup.select_one('a[onclick]')['onclick'].split("(")[-1].split(")")[0].split(",")
+            rkt = {"type":tmp_nclck[1],"id_obj":tmp_nclck[2]}
+            url = "https://www.babelio.com/aj_voir_plus_a.php"
+            if self.debug:
+                self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=rkt, who=self.who")
+                self.log.info(self.who,"url : ",url)
+                self.log.info(self.who,"rkt : ",rkt)
+            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who)[0]
 
-            if self.debug:                                     # may be long
-                soup = BS(comments, "html5lib")
-                self.log.info("get details comments prettyfied :\n", soup.prettify())
+        tmp_cmmnts = comments_soup.text
+        if self.debug: self.log.info(self.who,"tmp_cmmnts :\n", tmp_cmmnts)
 
-            return comments.replace(b'\x92', b'\x27').replace(b'\x19', b'\x27').replace(b'\x9C', b'\x6f\x65').decode('latin-1', errors='replace')
-        else :
-            comments = ''
-            if root.xpath('//div [@id="d_bio"]') :
-                comments = tostring(root.xpath('//div [@id="d_bio"]')[0], method='text', encoding=str)
-            return comments
+        return tmp_cmmnts
 
-    def parse_cover(self, root):
+    # def orig_parse_comments(self, root):
+    #     '''
+    #     get resume from root, may need access to the page again
+    #     '''
+    #     self.log.info(self.who,"in orig_parse_cover(self, root)\n")
+
+    #     description_node = root.xpath('//div [@id="d_bio"]/span/a')
+    #     if description_node:
+    #         java = description_node[0].get('onclick')
+    #         hash_url = re.search(r',([0-9]+?),([0-9]*)\)', java)
+    #         comment_url = BASE_URL + '/aj_voir_plus_a.php'
+    #         data = urllib.parse.urlencode({'type':hash_url.group(1), 'id_obj':hash_url.group(2) })
+    #         req = mechanize.Request(comment_url, data)
+    #         req.add_header('X-Requested-With', 'XMLHttpRequest')
+    #         req.add_header('Referer', self.url)
+    #         req.add_header('Host', 'www.babelio.com')
+    #         req.add_header('Connection', 'Keep-Alive')
+    #         req.add_header('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8')
+    #         req.add_header('Accept', '*/*')
+    #         handle = self.browser.open_novisit(req)
+    #         comments = handle.read()
+
+    #         if self.debug:                                     # may be long
+    #             soup = BS(comments, "html5lib")
+    #             self.log.info("get details comments prettyfied :\n", soup.prettify())
+
+    #         return comments.replace(b'\x92', b'\x27').replace(b'\x19', b'\x27').replace(b'\x9C', b'\x6f\x65').decode('latin-1', errors='replace')
+    #     else :
+    #         comments = ''
+    #         if root.xpath('//div [@id="d_bio"]') :
+    #             comments = tostring(root.xpath('//div [@id="d_bio"]')[0], method='text', encoding=str)
+    #         return comments
+
+    def parse_cover(self, soup):
         '''
         get cover address either from head or from html part
         '''
-        self.log.info(self.who,"in parse_cover(self, root)\n")
+        self.log.info(self.who,"in parse_cover(self, soup)\n")
 
-        if self.debugt:
-            start = time.time()
-            self.log.info(self.who,"Temps après parse_cover 0 : ", time.time() - start)
+        # if self.debugt:
+        #     start = time.time()
+        #     self.log.info(self.who,"Temps après parse_cover 0 : ", time.time() - start)
 
-        imgcol_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[1]/img")
-        if imgcol_node:
-            url = imgcol_node[0].get('src')
-            img_url = BASE_URL + url
-            if self.debugt:
-                self.log.info(self.who,"Temps après parse_cover 1 : ", time.time() - start)
-            if url.startswith('http'):
-                img_url = url
-                if self.debugt:
-                    self.log.info(self.who,"Temps après parse_cover 2 : ", time.time() - start)
-            self.log.info('img_url :', img_url)
+      # if soup.select_one('link[rel="image_src"]') fails, an exception will be raised
+        cover_soup = soup.select_one('link[rel="image_src"]')
+        # if self.debug: self.log.info(self.who,"cover_soup prettyfied :\n", cover_soup.prettify())
+        bbl_cover = cover_soup['href']
+
+        if self.debug:
+            self.log.info(self.who,'parse_cover() returns bbl_cover : ', bbl_cover)
+
+        return bbl_cover
+
+        # imgcol_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[1]/img")
+        # if imgcol_node:
+        #     url = imgcol_node[0].get('src')
+        #     img_url = BASE_URL + url
+        #     if self.debugt:
+        #         self.log.info(self.who,"Temps après parse_cover 1 : ", time.time() - start)
+        #     if url.startswith('http'):
+        #         img_url = url
+        #         if self.debugt:
+        #             self.log.info(self.who,"Temps après parse_cover 2 : ", time.time() - start)
+        #     self.log.info('img_url :', img_url)
           # the following takes forever (amazon site?), let's decide url is correct.
           # anyway when fetching cover this will be accessed before timeout (or not)
             # try :
@@ -479,7 +524,7 @@ class Worker(Thread):
             # #if int(info.getheader('Content-Length')) > 1000:
             # if int(info.get('Content-Length')) > 1000:
             #     self.log.info(self.who,"Temps après parse_cover 4 : ", time.time() - start)
-            return img_url
+            # return img_url
             # else:
             #     self.log.warning('Lien pour l\'image invalide : %s' % img_url)
 
@@ -527,21 +572,20 @@ class Worker(Thread):
 
         return bbl_isbn, bbl_publisher, bbl_pubdate
 
-        meta_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/div[1]")
-        if meta_node:
-            publisher_re = isbn_re = pubdate_re = publication = None
-            meta_text = tostring(meta_node[0], method='text', encoding=str).strip()
-            if re.search(r'(?<=teur : )([^\n(]*)', meta_text):
-                publisher_re = re.search(r'(?<=teur : )([^\n(]*)', meta_text).group(0)
-            if re.search(r'(?<=[BN|bn] : )([^\n]*)', meta_text) :
-                isbn_re = re.search(r'(?<=[BN|bn] : )([^\n(]*)', meta_text).group(0)
-            if re.search(r'\(([0-9]{4})\)', meta_text):
-                pubdate_re = re.search(r'\(([0-9]{4})\)', meta_text).group(1)
-                publication = self._convert_date_text(pubdate_re)
-            # meta_re = re.search(r'.*?\s?:\s?(\w*)\s*\n?.*?\s?:\s?([^\n]*)\n?\(([0-9]{4})\)', meta_text)
-            # self.log.info(isbn_re, '  ', publisher_re, '  ', pubdate_re)
-            return isbn_re, publisher_re, publication
-
+        # meta_node = root.xpath(".//*[@id='page_corps']/div/div[3]/div[2]/div[1]/div[2]/div[1]")
+        # if meta_node:
+        #     publisher_re = isbn_re = pubdate_re = publication = None
+        #     meta_text = tostring(meta_node[0], method='text', encoding=str).strip()
+        #     if re.search(r'(?<=teur : )([^\n(]*)', meta_text):
+        #         publisher_re = re.search(r'(?<=teur : )([^\n(]*)', meta_text).group(0)
+        #     if re.search(r'(?<=[BN|bn] : )([^\n]*)', meta_text) :
+        #         isbn_re = re.search(r'(?<=[BN|bn] : )([^\n(]*)', meta_text).group(0)
+        #     if re.search(r'\(([0-9]{4})\)', meta_text):
+        #         pubdate_re = re.search(r'\(([0-9]{4})\)', meta_text).group(1)
+        #         publication = self._convert_date_text(pubdate_re)
+        #     # meta_re = re.search(r'.*?\s?:\s?(\w*)\s*\n?.*?\s?:\s?([^\n]*)\n?\(([0-9]{4})\)', meta_text)
+        #     # self.log.info(isbn_re, '  ', publisher_re, '  ', pubdate_re)
+        #     return isbn_re, publisher_re, publication
 
     def parse_tags(self, soup):
         '''
