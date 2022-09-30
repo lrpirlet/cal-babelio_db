@@ -169,7 +169,8 @@ class Babelio(Source):
     capabilities = frozenset(['identify', 'cover'])
     touched_fields = frozenset(['title', 'authors', 'identifier:isbn', 'identifier:babelio', 'language', 'rating',
                                 'comments', 'publisher', 'pubdate', 'series', 'tags'])
-    has_html_comments = False
+    # has_html_comments = False     # si les commentaires sont texte
+    has_html_comments = True        # quand les commentatires sont formatés html
     supports_gzip_transfer_encoding = True
 
     ID_NAME = 'bbl_id'
@@ -193,7 +194,7 @@ class Babelio(Source):
         Option(
                'debug_level',
                'number',
-               7,
+               3,
                _("Verbosité du journal, de 0 à 15"),                                                   # verbosity of the log
                _("Le niveau de verbosité:<br>"                                                         # the level of verbosity.
                  " O un minimum de rapport,<br>"                                                       # value 0 will output the minimum,
@@ -203,14 +204,22 @@ class Babelio(Source):
                  " 8 timing... <br>"                                                                  # 8 debug level for timing
                  " La somme 3, 5, 7 ou 15 peut être introduite, ainsi 15 donne un maximum de rapport.<br>"  # 3, 5 or 7 is the sum of the value defined above.
                  " Note: mettre la verbosité = 15 pour rapport d'erreur")            # In fact it is a bitwise flag spread over the last 4 bits of debug_level
-               ),
+        ),
         Option(
-               'Cover_wanted',
-               'bool',
-               True,
-               _("Authorize les couvertures vue sur Babelio"),
-               _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long).")
-            )
+                'Cover_wanted',
+                'bool',
+                False,
+                _("Autorise les couvertures vues sur Babelio"),
+                _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long).<br>"
+                  "Attention, calibre rapporte: Impossible de trouver une couverture pour <strong>titre</strong> ")
+        ),
+        Option(
+                'Pretty_wanted',
+                'bool',
+                False,
+                _('Autorise un commentaire étendu'),
+                _('Cochez cette case pour autoriser la référence et le titre "Résumé" dans les commentaires')
+        )
     )
 
     @property
@@ -224,10 +233,19 @@ class Babelio(Source):
     @property
     def with_cover(self):
         x = getattr(self, 'wcover', None)
+        print("dans with_cover(self)")
         if x is not None:
             return x
         wcover = self.prefs.get('Cover_wanted', False)
         return wcover
+
+    @property
+    def with_pretty_comments(self):
+        x = getattr(self, 'wpcomment', None)
+        if x is not None:
+            return x
+        wpcomment = self.prefs.get('Pretty_wanted', False)
+        return wpcomment
 
     def get_book_url(self, identifiers):
         '''
@@ -306,8 +324,9 @@ class Babelio(Source):
         if no match is found with identifiers.
         '''
         log.info('-+-+-+-+-+-+-+-+-+-+ Entry point +-+-+-+-+-+-+-+-+-+-')
-        log.info('self.with_cover : ', self.with_cover)
-        log.info('self.dgb_lvl    : ', self.dbg_lvl)
+        log.info('self.dgb_lvl              : ', self.dbg_lvl)
+        log.info('self.with_cover           : ', self.with_cover)
+        log.info('self.with_pretty_comments : ', self.with_pretty_comments)
         log.info('\nIn identify(self, log, result_queue, abort, title=.., authors=.., identifiers=.., timeout=30)\n')
 
         debug=self.dbg_lvl & 1
@@ -512,6 +531,8 @@ class Babelio(Source):
 
 
 ####################### test section #######################
+# that is working during development but it is NOT a quality test as the site
+# has NO waranted stability... this is left just for example of the structure
 
 if __name__ == '__main__':
 
@@ -525,42 +546,15 @@ if __name__ == '__main__':
   # anyway, verify... I have been caught at least once
 
     from calibre.ebooks.metadata.sources.test import (test_identify_plugin, title_test, authors_test, series_test)
-
     test_identify_plugin(Babelio.name,
         [
-            ( # A book with ISBN specified, ISBN not found in babelio, expect some report about missing series
-                {'identifiers':{'isbn': '9781846148200'}, 'title':'Limonov', 'authors':['Emmanuel Carrère']},
-                [title_test("Limonov", exact=False), authors_test(['Emmanuel Carrère'])]
-            ),
+            # ( # A book with ISBN specified, ISBN not found in babelio so using title+authors
+            #     {'identifiers':{'isbn': '9781846148200'}, 'title':"Il est avantageux d'avoir où aller", 'authors':['Emmanuel Carrère']},
+            #     [title_test("Il est avantageux d'avoir où aller", exact=False), authors_test(['Emmanuel Carrère'])]
+            # ),
 
             ( # A book with ISBN specified
-                {'identifiers':{'isbn': '2-266-03441-3'}, 'title':'Futurs sans escale', 'authors':['ANTHOLOGIE']},
-                [title_test("Futurs sans escale", exact=True), authors_test(['ANTHOLOGIE']), series_test('Isaac Asimov présente',1)]
-            ),
-
-            # ( # A book with ISBN specified
-            #     {'identifiers':{'isbn': '2-265-04038-X'}, 'title':'Onze bonzes de bronze', 'authors':['Max ANTHONY']},
-            #     [title_test("Onze bonzes de bronze", exact=True), authors_test(['Max ANTHONY']), series_test('Ned Lucas',1)]
-            # ),
-
-            # ( # A book with nsfr_id:bk$5308$vl$-323559
-            #     {'identifiers':{'nsfr_id':'bk$5308$vl$-323559'}, 'title':"Le Printemps d'Helliconia", 'authors':['B.W. Aldiss']},
-            #     [title_test("Le Printemps d'Helliconia", exact=True), authors_test(['Brian Aldiss']), series_test('Helliconia', 1.0)]
-            # ),
-
-            # ( # A book with a wrong ISBN and title not quite right, will find one correct and 3 incorrect, correct is hightest priority...
-            #     {'identifiers':{'isbn': '227721409x'}, 'title':"La Patrouille des temps", 'authors':['Poul Anderson']},
-            #     [title_test("La Patrouille du temps", exact=True), authors_test(['Poul Anderson']), series_test('La Patrouille du Temps', 1.0)]
-            # ),
-
-##            ( # A book with no ISBN specified ... will fail over serie (serie is missing...)
-##                {'identifiers':{}, 'title':"La Guerre contre le Rull", 'authors':['A.E. van Vogt']},
-##                [title_test("La Guerre contre le Rull", exact=True), authors_test(['Alfred Elton VAN VOGT']), series_test('',0)]
-##            ),
-
-##            ( # A book with a HTTP Error 500
-##                {'identifiers':{'isbn': '2-290-04457-1'}, 'title':"Le Monde de l'exil", 'authors':['David BRIN']},
-##                [title_test("Le Monde de l'exil", exact=True), authors_test(['David Brin']), series_test('', 0)]
-##            ),
-
+                {'identifiers':{'isbn': '9782070448524'}, 'title':'Le chasseur et son ombre', 'authors':['George R. R. Martin']},
+                [title_test("Le chasseur et son ombre", exact=True), authors_test(['George R. R. Martin','Daniel Abraham','Gardner Dozois'])]
+            )
         ])

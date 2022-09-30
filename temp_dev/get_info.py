@@ -2621,17 +2621,16 @@ bbl_cover = cover_soup['href']
 print('bbl_cover processed ', "\n", 25*"+-")
 
 comments_soup = soup.select_one('.livre_resume')
-# print("comments prettyfied:\n", comments_soup.prettify())
 if comments_soup.select_one('a[onclick]'):
     print("onclick : ",comments_soup.select_one('a[onclick]')['onclick'])
     tmp_nclck = comments_soup.select_one('a[onclick]')['onclick'].split("(")[-1].split(")")[0].split(",")
     rkt = {"type":tmp_nclck[1],"id_obj":tmp_nclck[2]}
     print("rkt",rkt)
     print("Now comments_soup = ret_soup(log, dbg_lvl, br, url, rkt=rkt, who=who)")
-else:
-   tmp_cmmnts = comments_soup.text
-   print("tmp_cmmnts :\n", tmp_cmmnts)
 
+tmp_cmmnts = comments_soup.text
+print("tmp_cmmnts :\n", tmp_cmmnts)
+print("comments prettyfied:\n", comments_soup.prettify())
 
 
 
