@@ -122,7 +122,7 @@ def verify_isbn(log, dbg_lvl, isbn_str, who=''):
 
 def ret_clean_text(log, dbg_lvl, text, swap=False, who=''):
     '''
-    for the site search to work smoothly, authors and title needs to be cleaned
+    For the site search to work smoothly, authors and title needs to be cleaned.
     we need to remove non significant characters and remove useless space character...
     Calibre per default presents the author as "Firstname Lastname", cleaned to
     become "firstname lastname"  Noosfere present the author as "LASTNAME Firstname",
@@ -162,14 +162,13 @@ class Babelio(Source):
 
     name = 'Babelio'
     description = 'Télécharge les métadonnées et couverture depuis Babelio.com'
-    author = 'VdF'
+    author = '2021, Louis Richard Pirlet using VdF work as a base'
     version = (3, 0, 0)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
     touched_fields = frozenset(['title', 'authors', 'identifier:isbn', 'identifier:babelio', 'language', 'rating',
                                 'comments', 'publisher', 'pubdate', 'series', 'tags'])
-    # has_html_comments = False     # si les commentaires sont texte
     has_html_comments = True        # quand les commentatires sont formatés html
     supports_gzip_transfer_encoding = True
 
@@ -183,11 +182,11 @@ class Babelio(Source):
     config_help_message = '<p>'+_(" Babelio est un réseau social dédié aux livres et aux lecteurs. Il permet de créer"
                                   " et d’organiser sa bibliothèque en ligne, d’obtenir des informations sur des oeuvres,"
                                   " de partager et d’échanger ses goûts et impressions littéraires avec d’autres lecteurs.<br><br>"
-                                  " Il est a noter que certaines images de couvertures ne sont PAS localisée sur le site"
+                                  " Il est à noter que certaines images de couvertures ne sont PAS localisées sur le site"
                                   " même de Babelio... des temps extrèmement longs peuvent en être engendré.<br><br>"
                                   " Notez qu'une requête qui génère plus de 12 resultats se verra tronquée à 12..."
                                   " Il est possible de modifier ce comportement, mais au risque d'être banni de Babelio..."
-                                  " Je déconseille <strong>(vous êtes prévenus...)</strong>"
+                                  " Je déconseille... <strong>(Vous êtes prévenus...)</strong>"
                                   )
 
     options = (
@@ -210,8 +209,8 @@ class Babelio(Source):
                 'bool',
                 False,
                 _("Autorise les couvertures vues sur Babelio"),
-                _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long).<br>"
-                  "Attention, calibre rapporte: Impossible de trouver une couverture pour <strong>titre</strong> ")
+                _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long)."
+                  "Attention, calibre rapporte: Impossible de trouver une couverture pour <titre>")
         ),
         Option(
                 'Pretty_wanted',
@@ -252,13 +251,13 @@ class Babelio(Source):
         get_book_url : used by calibre to convert the identifier to a URL...
         return an url if bbl_id exists and is valid.
         For this to work, we need to define or find the minimum info to build a relevant url.
-        Today this seems to be: URL_BASE+"nom-de-l-auteur-le-titre-du-livre/<une serie de chiffres>"
-        that is: BASE_URL + "/livres/" + bbl_id or just: https://www.babelio.com/livres/ + bbl_id
-        example over an url :
-        https://www.babelio.com/livres/Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832
-        "https://www.babelio.com/livres/"+"Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832"
-
         '''
+        # For babelio, this seems to be: URL_BASE+"nom-de-l-auteur-le-titre-du-livre/<une serie de chiffres>"
+        # that is: BASE_URL + "/livres/" + bbl_id or just: https://www.babelio.com/livres/ + bbl_id
+        # example over an url :
+        # https://www.babelio.com/livres/Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832
+        # "https://www.babelio.com/livres/"+"Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832"
+
         bbl_id = identifiers.get('babelio', None)
         if bbl_id and "/" in bbl_id and bbl_id.split("/")[-1].isnumeric():
             return (self.ID_NAME, bbl_id, "https://www.babelio.com/livres/" + bbl_id)
@@ -266,6 +265,7 @@ class Babelio(Source):
     def id_from_url(self, url):
         '''
         id_from_url : takes an URL and extracts the identifier details...
+        Id must be unique enough for other plugin(s) to verify/adopt, or not, this id
         '''
         bbl_id = ""
         if "https://www.babelio.com/livres/" in url:
@@ -298,6 +298,7 @@ class Babelio(Source):
                 authors[i] = ret_clean_text(log, self.dbg_lvl, authors[i])
                 if "inconnu" in authors[i]:
                     authors[i] =""
+# calibre bug???
 # not sure whether or not this is a bug, in "get_author_tokens"... the net result is :
 # the search gives a different result when authors[x] is blank or contains "Inconnu(e)"
 # Seems confirmed try oedipe with authors field blank or with "Inconnu(e)"
@@ -436,7 +437,7 @@ class Babelio(Source):
       # too many hits in too short a time...
 
         count=0
-        while count < 3 :                                                       # loop over first 3 pages (maximum)
+        while count < 3 :                                                       # loop over first 3 pages of search result (maximum)
             x=soup.select('.titre_v2')                                          #
             if len(x):                                                          # loop over all html addresses tied with titre_v2 (all book ref)
                 for i in range(len(x)):                                         # !!CAUTION!! each page may have up to 10 books

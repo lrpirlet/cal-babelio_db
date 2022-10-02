@@ -99,7 +99,7 @@ impose une version de calibre minimum: minimum_calibre_version = (6, 3, 0)
 Dans __init__.py enlève les appels à encode() et à decode(),
 documente toutes les fonctions et méthodes. Ainsi, Visual Studio me montre dans une bulle
 toutes leurs informations relatives.
-introduit une série de log pour mieux suivre le flot du code.
+introduis une série de log pour mieux suivre le flot du code.
 ------------------------------------------------------------------
 introduis
   __copyright__ = '2021, Louis Richard Pirlet using VdF work as a base'
@@ -128,13 +128,13 @@ retravaille identify() pour réagir sur les identifiers avant de réagir sur tir
 --------------------------------------------------------------------
 Introduit les messages de debug sélectif... ce qui implique de modifier le config.py...
 je fini par le supprimer pour implémenter la configuration interne... Ceci me permet de documenter
-la configuration du plugin Babelio..
+la configuration du plugin Babelio.. la souris survole un champs et la bulle t'éclaire :)
 --------------------------------------------------------------------
 documente les méthodes dans worker.py
 Améliore la recherche quand le titre est trop imprécis... essayer œdipe roi sans auteur défini (et sans id...)
 --------------------------------------------------------------------
 Limite sévèrement le nombre d'accès au site Babelio.com pour éviter de voir l'accès au site interdit
-(le site répond time-out !pendant une semaine! ) quand un trop grand nombre de requêtes est formulés...
+(le site répond time-out !pendant une semaine! ) quand un trop grand nombre de requêtes est formulé...
 --------------------------------------------------------------------
 documente et nettoie __init__.py
 introduit une section test du plugin... l'algorithme de détection des auteurs doit être revu...
@@ -154,3 +154,51 @@ introduit une section test du plugin... l'algorithme de détection des auteurs d
     ...
 Introduit un fichier expliquant la licence, un readme.md pour github
 --------------------------------------------------------------------
+Damn it, cette section de test, m'énerve: le rapport effort de développement a la valeur du test est
+nettement en faveur de laisser tomber le test...
+La seule chose qu'il m'a apporté est le fait que j'avais oublié le "return bbl_tags" et donc les Tags
+n'étaient jamais importé dans calibre... et honnêtement, c'est le manque de tags sur des titres
+totalement vierges qui m'a fait comprendre le message du test... Il est probable que je pense
+différemment que l'auteur du test. (on n'en parle plus...)
+--------------------------------------------------------------------
+Introduit Beautifulsoup in worker.py
+la différence entre raw modifié et soup brute de fonderie est pour moi évidente... en plus
+BeautifulSoup me semble plus simple
+            # effect of raw being decoded to latin_1 inside calibre...
+        #    rawbs=BS(raw, "html5lib")   (raw = raw.decode('latin-1', errors='replace') )
+        #    self.log.info(self.who,"get details rawbs prettyfied :\n", rawbs.prettify())
+            # resultat (court extrait...)
+            # Poussé par lamour dune jolie femme, il simprovisera un moment professeur dans une école
+        #    self.log.info(self.who,"get details soup prettyfied :\n", soup.prettify())
+            # resultat (court extrait...)
+            # Poussé par l’amour d’une jolie femme, il s’improvisera un moment professeur dans une école
+--------------------------------------------------------------------
+développe en parallèle du code basé sur raw un code basé sur soup...
+Title, authors et rating sont juste une affaire de sélectionner le bon morceau de code HTML par select_one
+avant d'extraire ce que je veux.
+--------------------------------------------------------------------
+Tags demande un rien de traitement en plus (select crée une liste de code HTML qu'il faut traiter dans une boucle)
+metadata (isbn, éditeur, date de publication)demande un peu plus de boulot surtout pour la date (sous quel
+format calibre veut-il cette date?)... mais je peux laisser tomber la méthode qui traite la date...
+--------------------------------------------------------------------
+cover address n'est pas difficile si on l'extrait de <head>: le url est complet... j'ose esperer que le head de tous
+les livres de babelio contiennent cette info dans le head..
+Comments... Si je n'extrais QUE le texte (par comments_soup.text), je pers la structure: retour à la ligne par exemple.
+Donc je décide de prendre le code html, le serialiser par un bbl_comments.encode('ascii','xmlcharrefreplace')
+ET de modifier __init__ pour imposer:   has_html_comments = True
+maintenant on a, et les accents, et la structure... ouais.
+--------------------------------------------------------------------
+OK, j'aime calibre pour faire des catalogues calibre de ebooks. Je les envoie par email... (pour me les faire offrir ou
+pour en vanter la valeur). Les commentaires doivent donc contenir un référence que l'on peut suivre sur internet...
+Je veux donc mettre dans les commentaires l'adresse babelio de la page du livre. J'aurais mis l'adresse de la couverture si
+elles avaient été plus grandes et si elle avit été locale a babelio...
+Tant qu'a faire, je me dis qu'un titre est bien plus joli (pretty).
+j'implémente la référence et le titre avec un boolean dans le config pour un commentaire semblable a avant ou joli...
+---------------------------------------------------------------------
+Ca marche pas... jusqu'au moment ou je réalise que 'Pretty_wanted' dans Option est le nom sous lequel on enregistre
+la valeur et que ce nom doit etre le meme que dans la methode with_pretty_comments(self) (ou je l'avais ecrit Pretty_wnated)
+pas d'erreur mais pa de réaction...
+---------------------------------------------------------------------
+clean up
+---------------------------------------------------------------------
+Tiens compte que tome peut être écrit Tome dans un titre/série

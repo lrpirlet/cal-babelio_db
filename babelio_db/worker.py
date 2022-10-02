@@ -273,6 +273,12 @@ class Worker(Thread):
         self.log.info(self.who,"in parse_title_series(self, soup)\n")
 
       # seems that the title of babelio is in fact of the form "la serie - editeur, tome 55 : le titre"
+      # PB1: "Guerrier de Lumière - Volume 1" reviens avec le titre "Guerrier de Lumière - Volume 1" si seul,
+      # revient avec "Guerrier de Lumière" si combiné avec d'autre plugin... Problème: confusion avec
+      # "Guerrier de Lumière - Volume 2" et "Guerrier de Lumière - Volume 3"
+      # PB2: "Les juges : Trois histoires italiennes" le titre affiché dans babelio est faut... le texte du livre donne
+      # pour titre: Les juges... combiné avec d'autre plugin les titre sort correctement
+      # PB3 "Dédicaces - Tome 2: Le chapelet de jade" Dédicaces est la série... Tome , not tome
       #
       # editeur seems to be preceded by - it can be missing... AND "-" may be part of serie: "grande-série"
       # tome <num> seems to be surrounded by , or - and :
@@ -286,6 +292,7 @@ class Worker(Thread):
             self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify())
         tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
         bbl_series, bbl_series_seq ="", ""
+        tmp_ttl=tmp_ttl.replace("Tome","tome")
         if ":" and "tome" in tmp_ttl:
             bbl_title=tmp_ttl.split(":")[-1].strip()
             bbl_series=tmp_ttl.replace(" -", ",").split(":")[0].split(",")[0].strip()
