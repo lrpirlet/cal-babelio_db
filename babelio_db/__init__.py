@@ -10,9 +10,10 @@ __docformat__ = 'restructuredtext en'
 import urllib                                   # to access the web
 from bs4 import BeautifulSoup as BS             # to dismantle and manipulate HTTP (HyperText Markup Language)
 #import sys                                      # so I can access sys (mainly during development, probably useless now)
-import time                                     # guess that formats data and time in a common understanding
+import time, datetime                           #
+from psutil import cpu_count                    # goal is to set a minimum access time of 1 sec * number of thread available: this to avoid a DoS detection
 from queue import Empty, Queue                  # to submit jobs to another process (worker use it to pass results to calibre
-from difflib import SequenceMatcher as SM
+# from difflib import SequenceMatcher as SM
 ''' difflib has SequenceMatcher to compare 2 sentences
 s1 = ' It was a dark and stormy night. I was all alone sitting on a red chair. I was not completely alone as I had three cats.'
 s2 = ' It was a murky and stormy night. I was all alone sitting on a crimson chair. I was not completely alone as I had three felines.'
@@ -58,7 +59,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
                     log.info(who, "code : ",e.code,"reason : ",e.reason)
                     raise Exception('(ret_soup) Failed while acessing url : ',url)
 
-def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
+def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
     '''
     Function to return the soup for beautifullsoup to work on. with:
     br is browser, url is request address, who is an aid to identify the caller
@@ -66,11 +67,16 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
     return (soup, url_ret)
     '''
     debug=dbg_lvl & 4
-    if debug:
+    debugt=dbg_lvl & 8
+    if debug or debugt:
         log.info(who, "In ret_soup(log, dbg_lvl, br, url, rkt=none, who=''\n")
-        log.info(who, "br  : ", br)
-        log.info(who, "url : ", url)
-        log.info(who, "rkt : ", rkt)
+        log.info(who, "URL request time : ", datetime.datetime.now().strftime("%H:%M:%S"))
+    start = time.time()
+    if debug:
+        log.info(who, "br                : ", br)
+        log.info(who, "url               : ", url)
+        log.info(who, "rkt               : ", rkt)
+        log.info(who, "wtf               : ", wtf)
 
   # Note: le SEUL moment ou on doit passer d'un encodage des charactères à un autre est quand on reçoit des donneées
   # d'un site web... tout, absolument tout, est encodé en uft_8 dans le plugin... J'ai vraiment peiné a trouver l'encodage
@@ -80,7 +86,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
   #
   # from_encoding="windows-1252"
 
-    log.info(who, "Accessing url : ", url)
+    log.info(who, "URL request time     : ", url)
     if rkt :
         log.info(who, "search parameters : ",rkt)
         rkt=urllib.parse.urlencode(rkt).encode('ascii')
@@ -92,9 +98,12 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
     sr, url_ret = resp[0], resp[1]
 
     soup = BS(sr, "html5lib")       #, from_encoding=from_encoding) # needed when charset value is a lie
+
+    while (time.time() - start) < wtf:                        # avoid DoS detection by setting 1*cpu_count()
+        pass
     if debug:
 #        log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
-        log.info(who,"(ret_soup) return (soup, sr.geturl()) from ret_soup\n")
+        log.info(who,"(ret_soup) return (soup, sr.geturl()) from ret_soup")
     return (soup, url_ret)
 
 def verify_isbn(log, dbg_lvl, isbn_str, who=''):
@@ -160,19 +169,19 @@ def ret_clean_text(log, dbg_lvl, text, swap=False, who=''):
 
 class Babelio(Source):
 
-    name = 'Babelio'
+    name = 'Babelio_db'
     description = 'Télécharge les métadonnées et couverture depuis Babelio.com'
     author = '2021, Louis Richard Pirlet using VdF work as a base'
     version = (3, 0, 0)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
-    touched_fields = frozenset(['title', 'authors', 'identifier:isbn', 'identifier:babelio', 'language', 'rating',
-                                'comments', 'publisher', 'pubdate', 'series', 'tags'])
+    touched_fields = frozenset(['title', 'authors', 'identifier:isbn', 'identifier:babelio_db',
+                                'language', 'rating', 'comments', 'publisher', 'pubdate', 'series', 'tags'])
     has_html_comments = True        # quand les commentatires sont formatés html
     supports_gzip_transfer_encoding = True
 
-    ID_NAME = 'bbl_id'
+    ID_NAME = 'babelio_id'
     BASE_URL = 'https://www.babelio.com'
 
   # configuration du plugin
@@ -258,7 +267,7 @@ class Babelio(Source):
         # https://www.babelio.com/livres/Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832
         # "https://www.babelio.com/livres/"+"Savater-Il-giardino-dei-dubbi-Lettere-tra-Voltaire-e-Caro/598832"
 
-        bbl_id = identifiers.get('babelio', None)
+        bbl_id = identifiers.get(Babelio.ID_NAME, None)
         if bbl_id and "/" in bbl_id and bbl_id.split("/")[-1].isnumeric():
             return (self.ID_NAME, bbl_id, "https://www.babelio.com/livres/" + bbl_id)
 
@@ -343,6 +352,11 @@ class Babelio(Source):
         if identifiers:
           # En premier, on essaye de charger la page si un id babelio existe
             tmp_matches = self.get_book_url(identifiers)
+            if not tmp_matches:
+                old_id = identifiers.get('babelio', None)
+                if old_id and "/" in old_id and old_id.split("/")[-1].isnumeric():
+                    tmp_matches = (self.ID_NAME, old_id, "https://www.babelio.com/livres/" + old_id)
+
             if tmp_matches:
                 matches = [tmp_matches[2]]
                 log.info("babelio identifier trouvé... pas de recherche sur babelio... on saute directement au livre")
@@ -367,7 +381,7 @@ class Babelio(Source):
                     return
                 log.info('déduit du/des author/s et/ou du titre... on cherche sur babelio : ', query)
 
-            soup=ret_soup(log, self.dbg_lvl, br, query)[0]
+            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
 
             self._parse_search_results(log, title, authors, matches, soup, br)
             if not len(matches):
@@ -393,12 +407,13 @@ class Babelio(Source):
         if len(matches) > 12:       # protection to avoid banishment
             raise Exception('len(matches) still greater than 12... better stop than being stopped')
 
-        from calibre_plugins.babelio.worker import Worker
+        from calibre_plugins.babelio_db.worker import Worker
         workers = [Worker(url, result_queue, br, log, i, self, self.dbg_lvl) for i, url in enumerate(matches)]
 
         for w in workers:
             w.start()
-            time.sleep(0.1)         # Don't send all requests at the same time
+            time.sleep(1)           # Don't send all requests at the same time, make sure only one request per second
+            if debug: log.info()
 
         while not abort.is_set():   # sit and relax till all workers are done or aborted
             a_worker_is_alive = False
@@ -448,7 +463,7 @@ class Babelio(Source):
             count = count + 1                                                   #
             nxtpg = Babelio.BASE_URL + soup.select_one('.icon-next')["href"]    # get next page adress
             if debug: log.info("next page : ",nxtpg)                            #
-            soup=ret_soup(log, self.dbg_lvl, br, nxtpg)[0]                      # get new soup content and loop again
+            soup=ret_soup(log, self.dbg_lvl, br, nxtpg, wtf=1)[0]               # get new soup content and loop again, request MUST take at least 1 second
             time.sleep(0.2)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
         if debug:
@@ -472,7 +487,7 @@ class Babelio(Source):
         if not self.with_cover:
             return None
         url = None
-        bbl_id = identifiers.get('babelio', None)
+        bbl_id = identifiers.get(Babelio.ID_NAME, None)
         if bbl_id is None:
             isbn = identifiers.get('isbn', None)
             if isbn is not None:
@@ -538,7 +553,7 @@ class Babelio(Source):
 if __name__ == '__main__':
 
   # Run these tests from the directory containing all files needed for the plugin (the files that go into the zip file)
-  # that is: __init__.py, plugin-import-name-babelio.txt and optional .py such as worker.py, ui.py, whatever...
+  # that is: __init__.py, plugin-import-name-babelio_db.txt and optional .py such as worker.py, ui.py, whatever...
   # from a terminal issue in sequence:
   # calibre-customize -b .
   # calibre-debug -e __init__.py
@@ -555,7 +570,7 @@ if __name__ == '__main__':
             # ),
 
             ( # A book with ISBN specified
-                {'identifiers':{'isbn': '9782070448524'}, 'title':'Le chasseur et son ombre', 'authors':['George R. R. Martin']},
+                {'identifiers':{'isbn': '97820704485'}, 'title':'2052 Des drones à Manhattan', 'authors':['Duncan Cartwright']},
                 [title_test("Le chasseur et son ombre", exact=True), authors_test(['George R. R. Martin','Daniel Abraham','Gardner Dozois'])]
             )
         ])

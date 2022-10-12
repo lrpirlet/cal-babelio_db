@@ -196,9 +196,12 @@ Tant qu'a faire, je me dis qu'un titre est bien plus joli (pretty).
 j'implémente la référence et le titre avec un boolean dans le config pour un commentaire semblable a avant ou joli...
 ---------------------------------------------------------------------
 Ca marche pas... jusqu'au moment ou je réalise que 'Pretty_wanted' dans Option est le nom sous lequel on enregistre
-la valeur et que ce nom doit etre le meme que dans la methode with_pretty_comments(self) (ou je l'avais ecrit Pretty_wnated)
-pas d'erreur mais pa de réaction...
+la valeur et que ce nom doit être le même que dans la méthode with_pretty_comments(self) (ou je l'avais écrit Pretty_wnated)
+pas d'erreur mais pas de réaction...
 ---------------------------------------------------------------------
 clean up
 ---------------------------------------------------------------------
-Tiens compte que tome peut être écrit Tome dans un titre/série
+Tient compte que tome peut être écrit Tome dans un titre/série
+---------------------------------------------------------------------
+adapte babelio_db pour pouvoir mettre l'ancien babelio et celui-ci en parallèle: 
+le nom devient babelio_db et son id sera bbl_id...

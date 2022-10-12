@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
-'''
-# to mix UTF-8 (in __init__.py) and latin-& (in worker.py) just confuses me completely
-# delme vim:fileencoding=latin-1:ts=4:sw=4:sta:et:sts=4:ai
-# '''
 
 __license__ = 'GPL v3'
 __copyright__ = '2021, Louis Richard Pirlet using VdF work as a base'
@@ -17,9 +13,7 @@ from threading import Thread
 from calibre.ebooks.metadata.book.base import Metadata
 from calibre.ebooks.metadata import check_isbn
 from calibre.ebooks.metadata.sources.base import fixcase, fixauthors
-from calibre_plugins.babelio import ret_soup
-
-BASE_URL = 'https://www.babelio.com'
+from calibre_plugins.babelio_db import ret_soup, Babelio
 
 class Worker(Thread):
     '''
@@ -55,6 +49,7 @@ class Worker(Thread):
             self.log.info(self.who,"self.timeout              : ", self.timeout)
             self.log.info(self.who,"self.with_cover           : ", self.with_cover)
             self.log.info(self.who,"self.with_pretty_comments : ", self.with_pretty_comments)
+            self.log.info(self.who,"worker submission time    : ", datetime.datetime.now().strftime("%H:%M:%S"))
 
     def run(self):
         '''
@@ -76,9 +71,8 @@ class Worker(Thread):
             start = time.time()
             self.log.info(self.who,"in get details(), start time : ", start)
         if self.debug:
-            self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=None, who='[__init__]')")
-            self.log.info(self.who,"self.url : ", self.url)
-            self.log.info(self.who,"who      : ", self.who)
+            self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=None, who='')")
+            self.log.info(self.who,"self.url : ", self.url, "\n")
 
       # get the babelio page content
         rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who)
@@ -205,7 +199,7 @@ class Worker(Thread):
       # keep actual behavior
         if not self.with_pretty_comments:
             self.log.info(self.who,"with_pretty_comments : ", self.with_pretty_comments)
-            bbl_comments = comments          # cree la référence (pour retrouver Babelio a partir du catalogue)
+            bbl_comments = comments          # cree la référence (pour retrouver l'url babelio a partir du catalogue)
         else:
             bbl_reference = BS('<div><p>Référence: <a href="' + self.url + '">' + self.url + '</a></p></div>',"lxml")
           # on commence par la référence qui sera toujours presente dans le commentaire si with_pretty_comments est True
@@ -218,8 +212,7 @@ class Worker(Thread):
                 bbl_comments.append(comments)       # on ajoute les commentatires
 
         if bbl_comments:
-            if self.debug:
-                self.log.info(self.who,'bbl_comments prettified:\n', bbl_comments.prettify())     # visualise la construction html
+#            if self.debug: self.log.info(self.who,'bbl_comments prettyfied:\n', bbl_comments.prettify())     # visualise la construction html, may be long...
             bbl_comments = bbl_comments.encode('ascii','xmlcharrefreplace')     # et on serialize le tout
         else:
             self.log.info('Pas de résumé pour ce livre')
@@ -234,16 +227,15 @@ class Worker(Thread):
             mi.series_index = bbl_series_seq
         mi.rating = bbl_rating
         if bbl_isbn:
-            mi.isbn = bbl_isbn
+            mi.isbn = check_isbn(bbl_isbn)
         if bbl_publisher:
             mi.publisher = bbl_publisher
         if bbl_pubdate :
             mi.pubdate = bbl_pubdate
         mi.has_cover = bool(bbl_cover_url)
-        mi.set_identifier('babelio', self.bbl_id)
+        mi.set_identifier(Babelio.ID_NAME, self.bbl_id)
         mi.language = 'fr'
         mi.tags = bbl_tags
-        mi.isbn = check_isbn(mi.isbn)
         mi.comments=bbl_comments
 
         self.result_queue.put(mi)
@@ -273,6 +265,7 @@ class Worker(Thread):
         self.log.info(self.who,"in parse_title_series(self, soup)\n")
 
       # seems that the title of babelio is in fact of the form "la serie - editeur, tome 55 : le titre"
+      #
       # PB1: "Guerrier de Lumière - Volume 1" reviens avec le titre "Guerrier de Lumière - Volume 1" si seul,
       # revient avec "Guerrier de Lumière" si combiné avec d'autre plugin... Problème: confusion avec
       # "Guerrier de Lumière - Volume 2" et "Guerrier de Lumière - Volume 3"
@@ -282,6 +275,7 @@ class Worker(Thread):
       #
       # editeur seems to be preceded by - it can be missing... AND "-" may be part of serie: "grande-série"
       # tome <num> seems to be surrounded by , or - and :
+      # tome may be written Tome
       # title may include a : hopefully rare enough and NOT associated with a serie (should I look for " : " instead, or ???)
       # so we can extract the title always, and the series if babelio title contains both ':' and tome
       # series_seq is found just after tome and is numeric...
@@ -289,7 +283,7 @@ class Worker(Thread):
       # if soup.select_one(".livre_header_con") fails, an exception will be raised
         if self.debug:
             title_soup=soup.select_one(".livre_header_con").select_one("a")
-            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify())
+#            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify()) # may be long
         tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
         bbl_series, bbl_series_seq ="", ""
         tmp_ttl=tmp_ttl.replace("Tome","tome")
