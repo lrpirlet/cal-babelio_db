@@ -86,7 +86,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
   #
   # from_encoding="windows-1252"
 
-    log.info(who, "URL request time     : ", url)
+    log.info(who, "Accessing url     : ", url)
     if rkt :
         log.info(who, "search parameters : ",rkt)
         rkt=urllib.parse.urlencode(rkt).encode('ascii')
@@ -284,10 +284,10 @@ class Babelio(Source):
         else:
             return None
 
-    def create_query(self, log, title=None, authors=None):
+    def create_query(self, log, title=None, authors=None, only_first_author=True):
         '''
-        this returns an URL build with all the tokens made from both the title and the authors
-        called by identify()
+        This returns an URL build with all the tokens made from both the title and the authors.
+        If title is None, returns None.
         '''
         debug=self.dbg_lvl & 1
         if debug:
@@ -296,9 +296,8 @@ class Babelio(Source):
             log.info('authors     : ', authors)
 
         BASE_URL_FIRST = 'http://www.babelio.com/resrecherche.php?Recherche='
-        BASE_URL_MID = '+'
         BASE_URL_LAST = "&amp;tri=auteur&amp;item_recherche=livres&amp;pageN=1"
-        q = ''
+        ti = ''
         au = ''
 
         if authors:
@@ -312,20 +311,20 @@ class Babelio(Source):
 # the search gives a different result when authors[x] is blank or contains "Inconnu(e)"
 # Seems confirmed try oedipe with authors field blank or with "Inconnu(e)"
 
-            author_tokens = self.get_author_tokens(authors, only_first_author=True)
+            author_tokens = self.get_author_tokens(authors, only_first_author=only_first_author)
             au='+'.join(author_tokens)
 
         if title:
-            title = ret_clean_text(log, 7, title)
+            title = ret_clean_text(log, self.dbg_lvl, title)
             title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
-            q='+'.join(title_tokens)
+            ti='+'.join(title_tokens)
         else:
-    #    if not q:
             log.info("Pas de titre, semble-t-il... donc return None\n")
             return None
 
-        log.info("return from create_query\n")
-        return '%s%s%s%s%s'%(BASE_URL_FIRST,au,BASE_URL_MID,q,BASE_URL_LAST)
+        query = BASE_URL_FIRST+('+'.join((au,ti)).strip('+'))+BASE_URL_LAST
+        log.info("return query from create_query : ", query)
+        return query
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''
@@ -369,43 +368,54 @@ class Babelio(Source):
                     query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
                     log.info("ISBN identifier trouvé, on cherche cet ISBN sur babelio : ", query)
 
-          # Enfin sauf identifiers, on essaye auteur+titre ou même titre
-          # mais titre doit exister
-        if not matches:
-            if not query:
-                query = self.create_query(log, title=title, authors=authors)
-                if query is None:
-                    log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
-                    log.error("Verifier la validité des ids soumis (ISBN, babelio)")
-                    log.error("ainsi que la bonne orthographe des auteurs et du titre")
-                    return
-                log.info('déduit du/des author/s et/ou du titre... on cherche sur babelio : ', query)
-
+      # Enfin sauf identifiers, on essaye auteur+titre ou même titre
+      # mais titre doit exister (create_query return None if no title...)
+        if not (matches or query):
+            log.info("Pas de résultat avec babelio_id ou avec l'ISBN, on recherche les auteurs et le titre.")
+            if authors:
+                query = self.create_query(log, title=title, authors=authors, only_first_author=False)
+            if query is None:
+                log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
+                log.error("Verifier la validité des ids soumis (ISBN, babelio), ")
+                log.error("la présence d'un titre et la bonne orthographe des auteurs")
+                return
             soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
-
             self._parse_search_results(log, title, authors, matches, soup, br)
-            if not len(matches):
-                log.info("Pas de résultat avec l'ISBN, on recherche les auteurs et le titre.")
-                return self.identify(log, result_queue, abort, title=title, authors=authors, timeout=timeout)
+            query=None
+
+      # tous les auteurs ensemble ne donnent pas de résultats, on tente avec le titre et un auteur individuellement
+        if not (matches or query):
+            log.info('Pas de résultat avec tous les auteurs, on utilise seulement un : ')
+            if authors and len(authors) > 1 :
+                for n in range(len(authors)):
+                    log.info('Auteur utilisé : ', authors[n])
+                    query = self.create_query(log, title=title, authors=[authors[n]])
+                    soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+                    self._parse_search_results(log, title, authors, matches, soup, br)
+                    query=None
+                    if matches: break
+
+      # ok seul le titre peut encore apporter un résultat...
+        if not (matches or query):
+            log.info('Pas de résultat, on utilise uniquement le titre.')
+            query = self.create_query(log, title=title)
+            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+            self._parse_search_results(log, title, authors, matches, soup, br)
+            if not matches:
+                log.error('Pas de résultat pour la requête : ', query)
+                log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
+                log.error("Verifier la validité des ids soumis (ISBN, babelio) et ")
+                log.error("la bonne orthographe des auteurs")
+                return
+
+        if debug: log.info(" matches : ", matches)
+        if len(matches) > 12:       # protection to avoid banishment
+            raise Exception('len(matches) still greater than 12... better stop than being stopped')
 
         if abort.is_set():
             if debug:
                 log.info("abort is set...")
             return
-
-        if not matches:
-            if title and authors and len(authors) > 1:
-                log.info('Pas de résultat avec tous les auteurs, on utilise uniquement le premier.')
-                return self.identify(log, result_queue, abort, title=title, authors=[authors[0]], timeout=timeout)
-            elif authors and len(authors) == 1 :
-                log.info('Pas de résultat, on utilise uniquement le titre.')
-                return self.identify(log, result_queue, abort, title=title, timeout=timeout)
-            log.error('Pas de résultat pour la requête : ', query)
-            return
-
-        if debug: log.info(" matches : ", matches)
-        if len(matches) > 12:       # protection to avoid banishment
-            raise Exception('len(matches) still greater than 12... better stop than being stopped')
 
         from calibre_plugins.babelio_db.worker import Worker
         workers = [Worker(url, result_queue, br, log, i, self, self.dbg_lvl) for i, url in enumerate(matches)]
@@ -570,7 +580,7 @@ if __name__ == '__main__':
             # ),
 
             ( # A book with ISBN specified
-                {'identifiers':{'isbn': '97820704485'}, 'title':'2052 Des drones à Manhattan', 'authors':['Duncan Cartwright']},
+                {'identifiers':{'isbn': '97820704485'}, 'title':'2052 Des drones à Manhattan', 'authors':['Duncan Cartwright', 'j.j bidule']},
                 [title_test("Le chasseur et son ombre", exact=True), authors_test(['George R. R. Martin','Daniel Abraham','Gardner Dozois'])]
             )
         ])
