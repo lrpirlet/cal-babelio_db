@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup as BS             # to dismantle and manipulate HT
 import time, datetime                           #
 from psutil import cpu_count                    # goal is to set a minimum access time of 1 sec * number of thread available: this to avoid a DoS detection
 from queue import Empty, Queue                  # to submit jobs to another process (worker use it to pass results to calibre
-# from difflib import SequenceMatcher as SM
+from difflib import SequenceMatcher as SM
 ''' difflib has SequenceMatcher to compare 2 sentences
 s1 = ' It was a dark and stormy night. I was all alone sitting on a red chair. I was not completely alone as I had three cats.'
 s2 = ' It was a murky and stormy night. I was all alone sitting on a crimson chair. I was not completely alone as I had three felines.'
@@ -62,9 +62,9 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
 def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
     '''
     Function to return the soup for beautifullsoup to work on. with:
-    br is browser, url is request address, who is an aid to identify the caller
-    rkt list of arguments for a POST request, if rkt is None, the request is GET
-    return (soup, url_ret)
+    br is browser, url is request address, who is an aid to identify the caller,
+    wtf is a wait time to avoid DoS attack detection, rkt is the arguments for a
+    POST request, if rkt is None, the request is GET... return (soup, url_ret)
     '''
     debug=dbg_lvl & 4
     debugt=dbg_lvl & 8
@@ -129,37 +129,22 @@ def verify_isbn(log, dbg_lvl, isbn_str, who=''):
         log.info("return check_isbn(isbn_str) from verify_isbn\n")
     return check_isbn(isbn_str)         # calibre does the check for me after cleaning...
 
-def ret_clean_text(log, dbg_lvl, text, swap=False, who=''):
+def ret_clean_text(log, dbg_lvl, text, who=''):
     '''
     For the site search to work smoothly, authors and title needs to be cleaned.
     we need to remove non significant characters and remove useless space character...
-    Calibre per default presents the author as "Firstname Lastname", cleaned to
-    become "firstname lastname"  Noosfere present the author as "LASTNAME Firstname",
-    let's get "Firstname LASTNAME" cleaned to "firstname lastname"
     '''
     debug=dbg_lvl & 4
     if debug:
-        log.info(who,"\nIn ret_clean_txt(self, log, text, swap =",swap,")\n")
+        log.info(who,"\nIn ret_clean_txt(self, log, text)\n")
         log.info(who,"text         : ", text)
 
-    for k in [',','.', ':','-',"'",'"','(',')']:             # yes I found a name with '(' and ')' in it...
-        if k in text:
-            text = text.replace(k," ")
-    text=" ".join(text.split())
+    txt = lower(get_udc().decode(text))
 
-    if swap:
-        if debug:
-            log.info("swap name and surname")
-        nom=prenom=""
-        for i in range(len(text.split())):
-            if (len(text.split()[i])==1) or (not text.split()[i].isupper()):
-                prenom += " "+text.split()[i]
-            else:
-                nom += " "+text.split()[i]
-        text=prenom+" "+nom
-        if debug: log.info("text         : ", text)
-
-    clntxt = lower(get_udc().decode(text))
+    for k in [',','.', ':','-',"'",'"','(',')','<','>','/']:             # yes I found a name with '(' and ')' in it...
+        if k in txt:
+            txt = txt.replace(k," ")
+    clntxt=" ".join(txt.split())
 
     if debug:
         log.info("cleaned text : ", clntxt)
@@ -195,7 +180,9 @@ class Babelio(Source):
                                   " même de Babelio... des temps extrèmement longs peuvent en être engendré.<br><br>"
                                   " Notez qu'une requête qui génère plus de 12 resultats se verra tronquée à 12..."
                                   " Il est possible de modifier ce comportement, mais au risque d'être banni de Babelio..."
-                                  " Je déconseille... <strong>(Vous êtes prévenus...)</strong>"
+                                  " Dans cette même veine, utiliser en même temps les plugins babelio et babelio_db est moyen sùr"
+                                  " de provoquer trop de requêtes vers babelio.com.<br>"
+                                  " <em>Je déconseille... <strong>(Vous êtes prévenus...)</strong></em>"
                                   )
 
     options = (
@@ -288,6 +275,7 @@ class Babelio(Source):
         '''
         This returns an URL build with all the tokens made from both the title and the authors.
         If title is None, returns None.
+        ! type(title) is str, type(authors) is list
         '''
         debug=self.dbg_lvl & 1
         if debug:
@@ -300,16 +288,19 @@ class Babelio(Source):
         ti = ''
         au = ''
 
-        if authors:
+        x = ['Inconnu(e)', 'Unknown']
+        for i in range(len(x)):
+            if authors and x[i] in authors[0]: authors = None
 
+        if authors:
             for i in range(len(authors)):
                 authors[i] = ret_clean_text(log, self.dbg_lvl, authors[i])
-                if "inconnu" in authors[i]:
-                    authors[i] =""
+
 # calibre bug???
 # not sure whether or not this is a bug, in "get_author_tokens"... the net result is :
 # the search gives a different result when authors[x] is blank or contains "Inconnu(e)"
 # Seems confirmed try oedipe with authors field blank or with "Inconnu(e)"
+# In the english language, authors unknown is passed to identify as None
 
             author_tokens = self.get_author_tokens(authors, only_first_author=only_first_author)
             au='+'.join(author_tokens)
@@ -367,17 +358,19 @@ class Babelio(Source):
                 if isbn:
                     query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
                     log.info("ISBN identifier trouvé, on cherche cet ISBN sur babelio : ", query)
+                    soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+                    self._parse_search_results(log, title, authors, matches, soup, br)
+                    query=None
 
       # Enfin sauf identifiers, on essaye auteur+titre ou même titre
       # mais titre doit exister (create_query return None if no title...)
         if not (matches or query):
             log.info("Pas de résultat avec babelio_id ou avec l'ISBN, on recherche les auteurs et le titre.")
-            if authors:
-                query = self.create_query(log, title=title, authors=authors, only_first_author=False)
+            query = self.create_query(log, title=title, authors=authors, only_first_author=False)
             if query is None:
-                log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
+                log.error('Métadonnées incorrectes ou insuffisantes pour la requête.')
                 log.error("Verifier la validité des ids soumis (ISBN, babelio), ")
-                log.error("la présence d'un titre et la bonne orthographe des auteurs")
+                log.error("la présence d'un titre et la bonne orthographe des auteurs.")
                 return
             soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
             self._parse_search_results(log, title, authors, matches, soup, br)
@@ -403,9 +396,10 @@ class Babelio(Source):
             self._parse_search_results(log, title, authors, matches, soup, br)
             if not matches:
                 log.error('Pas de résultat pour la requête : ', query)
-                log.error('Métadonnées incorrecte ou insuffisantes pour la requête')
+                log.error("Soit ce livre n'est pas connu de babelio, soit les métadonnées ")
+                log.error('sont incorrectes ou insuffisantes pour la requête.')
                 log.error("Verifier la validité des ids soumis (ISBN, babelio) et ")
-                log.error("la bonne orthographe des auteurs")
+                log.error("la bonne orthographe des auteurs.")
                 return
 
         if debug: log.info(" matches : ", matches)
@@ -462,19 +456,26 @@ class Babelio(Source):
       # too many hits in too short a time...
 
         count=0
-        while count < 3 :                                                       # loop over first 3 pages of search result (maximum)
-            x=soup.select('.titre_v2')                                          #
+        while count < 3 :                                                       # loop over first pages of search result (maximum)
+            x=soup.select_one('div.mes_livres').select_one('tbody').select('tr')
             if len(x):                                                          # loop over all html addresses tied with titre_v2 (all book ref)
                 for i in range(len(x)):                                         # !!CAUTION!! each page may have up to 10 books
-                    y=Babelio.BASE_URL + x[i]["href"]                           #
-                    if not y in matches: matches.append(y)                      # but do not duplicate with duplicated address for the cover image
+                    y = x[i].select_one('td.titre_livre > a.titre_v2')
+                    sous_url = y["href"].strip()
+                    titre = y.text.strip()
+                    y = x[i].select_one('td.auteur > a.auteur_v2')
+                    auteur=y.text.strip()
+                    matches.append(Babelio.BASE_URL + sous_url)
+                    log.info("titre  : ",titre)
+                    log.info("auteur : ", auteur)
+                    log.info(20*"-+")
             if not soup.select_one('.icon-next'):                               #
                 break                                                           # exit loop if no more next page
             count = count + 1                                                   #
             nxtpg = Babelio.BASE_URL + soup.select_one('.icon-next')["href"]    # get next page adress
             if debug: log.info("next page : ",nxtpg)                            #
             soup=ret_soup(log, self.dbg_lvl, br, nxtpg, wtf=1)[0]               # get new soup content and loop again, request MUST take at least 1 second
-            time.sleep(0.2)                                                     # but wait a while so as not to hit www.babelio.com too hard
+            time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
         if debug:
             log.info("matches at return time : ", matches)
@@ -485,8 +486,8 @@ class Babelio(Source):
             log.info("\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-")
             log.info("nombre de matches      : ", len(matches))
             while len(matches) > 12:
-                matches.remove(matches[randint(4,len(matches))-1])
-            log.info("plus de 12 resultats... On ne considère que les 3 premiers résultats et 9 autres pris aléatoirement")
+                matches.remove(matches[randint(7,len(matches))-1])
+            log.info("plus de 12 resultats... On ne considère que les 6 premiers résultats et 6 autres pris aléatoirement")
             log.info("+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-\n")
         return
 
@@ -579,8 +580,8 @@ if __name__ == '__main__':
             #     [title_test("Il est avantageux d'avoir où aller", exact=False), authors_test(['Emmanuel Carrère'])]
             # ),
 
-            ( # A book with ISBN specified
-                {'identifiers':{'isbn': '97820704485'}, 'title':'2052 Des drones à Manhattan', 'authors':['Duncan Cartwright', 'j.j bidule']},
+            ( # A book with ISBN specified, as series is none, series_test will fail
+                {'identifiers':{'isbn': '97820704485'}, 'title':'Le chasseur et son ombre', 'authors':['George R. R. Martin','Daniel Abraham','Gardner Dozois']},
                 [title_test("Le chasseur et son ombre", exact=True), authors_test(['George R. R. Martin','Daniel Abraham','Gardner Dozois'])]
             )
         ])

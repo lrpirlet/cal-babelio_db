@@ -141,7 +141,7 @@ class Worker(Thread):
 
         if self.debugt:
             self.log.info(self.who,"Temps après parse_meta() ... : ", time.time() - start)
-            bbl_isbn, bbl_pubdate, bbl_publisher = None, None, None
+            # bbl_isbn, bbl_pubdate, bbl_publisher = None, None, None
 
       # find the rating.. OK
         try:
@@ -368,7 +368,7 @@ class Worker(Thread):
                 self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=rkt, who=self.who")
                 self.log.info(self.who,"url : ",url)
                 self.log.info(self.who,"rkt : ",rkt)
-            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who)[0]
+            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1)[0]
 
         # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify())
         return comments_soup
