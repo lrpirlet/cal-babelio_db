@@ -40,7 +40,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
     while tries > 1:
         try:
             sr = br.open(url,data=rkt,timeout=30)
-            log.info(who,"(ret_soup) sr.getcode()  : ", sr.getcode())
+            log.info(who,"(urlopen_with_retry) sr.getcode()  : ", sr.getcode())
             if debug:
                 log.info(who,"url_vrai      : ", sr.geturl())
                 log.info(who,"sr.info()     : ", sr.info())
@@ -48,7 +48,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
         except urllib.error.URLError as e:
             if "500" in str(e):
                 log.info("\n\n\n"+who,"HTTP Error 500 is Internal Server Error, sorry\n\n\n")
-                raise Exception('(ret_soup) Failed while acessing url : ',url)
+                raise Exception('(urlopen_with_retry) Failed while acessing url : ',url)
             else:
                 log.info(who,"(urlopen_with_retry)", str(e),", will retry in", delay, "seconds...")
                 time.sleep(delay)
@@ -57,7 +57,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
                 if tries == 1 :
                     log.info(who, "exception occured...")
                     log.info(who, "code : ",e.code,"reason : ",e.reason)
-                    raise Exception('(ret_soup) Failed while acessing url : ',url)
+                    raise Exception('(urlopen_with_retry) Failed while acessing url : ',url)
 
 def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
     '''
@@ -94,16 +94,11 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
 
     resp = urlopen_with_retry(log, dbg_lvl, br, url, rkt, who)
     # if debug: log.info(who,"...et from_encoding, c'est : ", from_encoding)
-
     sr, url_ret = resp[0], resp[1]
-
     soup = BS(sr, "html5lib")       #, from_encoding=from_encoding) # needed when charset value is a lie
-
     while (time.time() - start) < wtf:                        # avoid DoS detection by setting 1*cpu_count()
         pass
-    if debug:
-#        log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
-        log.info(who,"(ret_soup) return (soup, sr.geturl()) from ret_soup")
+    # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
     return (soup, url_ret)
 
 def verify_isbn(log, dbg_lvl, isbn_str, who=''):
@@ -288,33 +283,18 @@ class Babelio(Source):
         ti = ''
         au = ''
 
-        x = ['Inconnu(e)', 'Unknown']
-        for i in range(len(x)):
-            if authors and x[i] in authors[0]: authors = None
-
         if authors:
             for i in range(len(authors)):
                 authors[i] = ret_clean_text(log, self.dbg_lvl, authors[i])
-
-# calibre bug???
-# not sure whether or not this is a bug, in "get_author_tokens"... the net result is :
-# the search gives a different result when authors[x] is blank or contains "Inconnu(e)"
-# Seems confirmed try oedipe with authors field blank or with "Inconnu(e)"
-# In the english language, authors unknown is passed to identify as None
-
             author_tokens = self.get_author_tokens(authors, only_first_author=only_first_author)
             au='+'.join(author_tokens)
 
-        if title:
-            title = ret_clean_text(log, self.dbg_lvl, title)
-            title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
-            ti='+'.join(title_tokens)
-        else:
-            log.info("Pas de titre, semble-t-il... donc return None\n")
-            return None
+        title = ret_clean_text(log, self.dbg_lvl, title)
+        title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
+        ti='+'.join(title_tokens)
 
         query = BASE_URL_FIRST+('+'.join((au,ti)).strip('+'))+BASE_URL_LAST
-        log.info("return query from create_query : ", query)
+        if debug: log.info("return query from create_query : ", query)
         return query
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
@@ -331,9 +311,17 @@ class Babelio(Source):
 
         debug=self.dbg_lvl & 1
         if debug:
-            log.info("title       : ", title)
-            log.info("authors     : ", authors)
-            log.info("identifiers : ", identifiers)
+            log.info("title             : ", title)
+            log.info("identifiers       : ", identifiers)
+            log.info("authors           : ", authors, type(authors))
+
+        nknwn = ['Inconnu(e)', 'Unknown','Inconnu','Sconosciuto','Necunoscut(ă)']   #français, anglais, français(Canada), italien, roman
+        for i in range(len(nknwn)):
+            if authors and nknwn[i] in authors[0]:
+                authors = None
+                if debug: log.info("authors Unknown processed : ", authors)
+                break
+
         query = None
         matches = []
         br = self.browser
@@ -346,10 +334,9 @@ class Babelio(Source):
                 old_id = identifiers.get('babelio', None)
                 if old_id and "/" in old_id and old_id.split("/")[-1].isnumeric():
                     tmp_matches = (self.ID_NAME, old_id, "https://www.babelio.com/livres/" + old_id)
-
             if tmp_matches:
                 matches = [tmp_matches[2]]
-                log.info("babelio identifier trouvé... pas de recherche sur babelio... on saute directement au livre")
+                log.info("babelio identifier trouvé... pas de recherche sur babelio... on saute directement au livre\n")
 
           # ensuite, on essaye de charger la page si un ISBN existe
           # def verify_isbn(log, dbg_lvl, isbn_str, who=''):
@@ -359,41 +346,41 @@ class Babelio(Source):
                     query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
                     log.info("ISBN identifier trouvé, on cherche cet ISBN sur babelio : ", query)
                     soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
-                    self._parse_search_results(log, title, authors, matches, soup, br)
+                    matches = self.parse_search_results(log, title, authors, soup, br)
                     query=None
 
       # Enfin sauf identifiers, on essaye auteur+titre ou même titre
       # mais titre doit exister (create_query return None if no title...)
-        if not (matches or query):
-            log.info("Pas de résultat avec babelio_id ou avec l'ISBN, on recherche les auteurs et le titre.")
+        if not title:
+            log.error('Métadonnées incorrectes ou insuffisantes pour la requête.')
+            log.error("Verifier la validité des ids soumis (ISBN, babelio), ")
+            log.error("la présence d'un titre et la bonne orthographe des auteurs.")
+            return
+
+        if not (matches or query) and authors:
+            log.info("Pas de résultat avec babelio_id ou avec l'ISBN, on recherche les auteurs et le titre.\n")
             query = self.create_query(log, title=title, authors=authors, only_first_author=False)
-            if query is None:
-                log.error('Métadonnées incorrectes ou insuffisantes pour la requête.')
-                log.error("Verifier la validité des ids soumis (ISBN, babelio), ")
-                log.error("la présence d'un titre et la bonne orthographe des auteurs.")
-                return
             soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
-            self._parse_search_results(log, title, authors, matches, soup, br)
+            matches = self.parse_search_results(log, title, authors, soup, br)
             query=None
 
       # tous les auteurs ensemble ne donnent pas de résultats, on tente avec le titre et un auteur individuellement
-        if not (matches or query):
-            log.info('Pas de résultat avec tous les auteurs, on utilise seulement un : ')
-            if authors and len(authors) > 1 :
-                for n in range(len(authors)):
-                    log.info('Auteur utilisé : ', authors[n])
-                    query = self.create_query(log, title=title, authors=[authors[n]])
-                    soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
-                    self._parse_search_results(log, title, authors, matches, soup, br)
-                    query=None
-                    if matches: break
+        if not (matches or query) and authors and len(authors) > 1 :
+            log.info("Pas de résultat avec tous les auteurs, on n'en n'utilise qu'un.", end=" ")
+            for n in range(len(authors)):
+                log.info('Auteur utilisé : ', authors[n],'\n')
+                query = self.create_query(log, title=title, authors=[authors[n]])
+                soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+                matches = self.parse_search_results(log, title, authors, soup, br)
+                query=None
+                if matches: break
 
       # ok seul le titre peut encore apporter un résultat...
         if not (matches or query):
-            log.info('Pas de résultat, on utilise uniquement le titre.')
+            log.info('Pas de résultat, on utilise uniquement le titre (on peut avoir de la chance! ).\n')
             query = self.create_query(log, title=title)
             soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
-            self._parse_search_results(log, title, authors, matches, soup, br)
+            matches = self.parse_search_results(log, title, authors, soup, br)
             if not matches:
                 log.error('Pas de résultat pour la requête : ', query)
                 log.error("Soit ce livre n'est pas connu de babelio, soit les métadonnées ")
@@ -402,9 +389,7 @@ class Babelio(Source):
                 log.error("la bonne orthographe des auteurs.")
                 return
 
-        if debug: log.info(" matches : ", matches)
-        if len(matches) > 12:       # protection to avoid banishment
-            raise Exception('len(matches) still greater than 12... better stop than being stopped')
+        if debug: log.info("matches : ", matches)
 
         if abort.is_set():
             if debug:
@@ -432,43 +417,40 @@ class Babelio(Source):
 
         return None                 # job done
 
-    def _parse_search_results(self, log, orig_title, orig_authors, matches, soup, br):
+    def parse_search_results(self, log, orig_title, orig_authors, soup, br):
         '''
-        this method returns after it modifies "matches" (or not) received as a parameter
+        this method returns "matches".
         note: if several matches, the first presented in babelio will be the first in the
         matches list; it will be submited as the first worker... (highest priority)
-        !! CAUTION !! if the number of book discovered is greater than 12, the first 3 found
-        and 9 others picked at random will be set in matches
+        !! CAUTION !! if the number of book discovered is greater than 12, only the 12 most
+        significant will be returned
         '''
-        log.info('In _parse_search_results(self, log, orig_title, orig_authors, matches, soup)')
+        log.info('In parse_search_results(self, log, orig_title, orig_authors, soup, br)')
         debug=self.dbg_lvl & 1
         if debug:
-            log.info("(inutilisé) orig_title    : ", orig_title)
+            log.info("orig_title                : ", orig_title)
             log.info("(inutilisé) orig_authors  : ", orig_authors)
-            log.info("matches                   : ", matches)
 
-      #   <td class="titre_livre">
-      #   est unique par livre correspondant à la recherche
-      #   et sous cette ref <a class="titre_v2" ... donne les refs
-
-      # there could be several matches just create a book with title "oedipe roi" and no author...
-      # run edit metadata to find... a lot of possibilities... and get banned for a week because
-      # too many hits in too short a time...
-
+      # I doubt that we would have more than 12 reference in babelio for the same title with same list of authors
+      # code to get authors from babelio page is commented..
+        unsrt_match, matches = [], []
         count=0
-        while count < 3 :                                                       # loop over first pages of search result (maximum)
-            x=soup.select_one('div.mes_livres').select_one('tbody').select('tr')
+        while count < 5 :                                                       # loop over 6 first pages of search result (max 6 request @ 1.6 sec)
+            try:
+                x=soup.select_one('div.mes_livres').select_one('tbody').select('tr')
+            except:
+                break
             if len(x):                                                          # loop over all html addresses tied with titre_v2 (all book ref)
                 for i in range(len(x)):                                         # !!CAUTION!! each page may have up to 10 books
                     y = x[i].select_one('td.titre_livre > a.titre_v2')
                     sous_url = y["href"].strip()
                     titre = y.text.strip()
-                    y = x[i].select_one('td.auteur > a.auteur_v2')
-                    auteur=y.text.strip()
-                    matches.append(Babelio.BASE_URL + sous_url)
-                    log.info("titre  : ",titre)
-                    log.info("auteur : ", auteur)
-                    log.info(20*"-+")
+                    # y = x[i].select_one('td.auteur > a.auteur_v2')
+                    # auteur=y.text.strip()
+                    ttl=ret_clean_text(log, self.dbg_lvl, titre)
+                    orig_ttl=ret_clean_text(log, self.dbg_lvl, orig_title)
+                    unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio())))
+
             if not soup.select_one('.icon-next'):                               #
                 break                                                           # exit loop if no more next page
             count = count + 1                                                   #
@@ -477,19 +459,28 @@ class Babelio(Source):
             soup=ret_soup(log, self.dbg_lvl, br, nxtpg, wtf=1)[0]               # get new soup content and loop again, request MUST take at least 1 second
             time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
-        if debug:
-            log.info("matches at return time : ", matches)
-            log.info("nombre de matches      : ", len(matches))
+        srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True) # find best matches over the orig_title
 
-        if len(matches) > 12:           # if > 12, keep first 3, then remove randomly item greater than 4 till =12
-            from random import randint
-            log.info("\n+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-")
-            log.info("nombre de matches      : ", len(matches))
-            while len(matches) > 12:
-                matches.remove(matches[randint(7,len(matches))-1])
-            log.info("plus de 12 resultats... On ne considère que les 6 premiers résultats et 6 autres pris aléatoirement")
-            log.info("+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-\n")
-        return
+        log.info('nombre de références trouvées dans babelio', len(srt_match))
+        # if debug:                                                                          # may be long
+        #     for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])      # may be long
+
+        srt_match = srt_match[:12]                                              # limit to 12 requests (max 12 requests @ #workers sec)
+        for i in range(len(srt_match)):
+            matches.append(Babelio.BASE_URL + srt_match[i][0])
+
+        if not matches:
+            if debug:
+                log.info("matches at return time : ", matches)
+            return None
+        else:
+            log.info("nombre de matches : ", len(matches))
+            if debug:
+                log.info("matches at return time : ")
+                for i in range(len(matches)):
+                    log.info("     ", matches[i])
+
+        return matches
 
     def get_cached_cover_url(self, identifiers):
         '''

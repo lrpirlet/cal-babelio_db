@@ -101,8 +101,6 @@ class Worker(Thread):
         errors and sets mi
         '''
         self.log.info(self.who,"in parse_details(self, soup)\n")
-        if self.debug:
-            self.log.info(self.who,"type(soup) : ", type(soup))
         if self.debugt:
             start = time.time()
             self.log.info(self.who,"in parse_details(), new start : ", start)
@@ -312,9 +310,6 @@ class Worker(Thread):
         get authors from the url, may be located in head (indirectly) or in the html part
         '''
         self.log.info(self.who,"in parse_authors(self, soup)\n")
-
-        if self.debug:
-            self.log.info(self.who,"type(soup) : ", type(soup))
 
       # if soup.select_one(".livre_con") fails, an exception will be raised
         authors_soup=soup.select_one(".livre_con").select('span[itemprop="author"]')
