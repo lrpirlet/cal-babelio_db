@@ -1198,49 +1198,71 @@ from bs4 import BeautifulSoup as BS
 from difflib import SequenceMatcher as SM
 import datetime
 
+def ret_clean_text( text):
+    '''
+    For the site search to work smoothly, authors and title needs to be cleaned.
+    we need to remove non significant characters and remove useless space character...
+    '''
+    debug=1
+    if debug:
+        print("\nIn ret_clean_txt(self, log, text)\n")
+        print("text         : ", text)
+
+    txt = text.lower()
+
+    for k in [',','.', ':','-',"'",'"','(',')','<','>','/']:             # yes I found a name with '(' and ')' in it...
+        if k in txt:
+            txt = txt.replace(k," ")
+    clntxt=" ".join(txt.split())
+
+    if debug:
+        print("cleaned text : ", clntxt)
+        print("return text from ret_clean_txt")
+
+    return clntxt
 
 soup = BS(elem, "html5lib" ).select_one('div.mes_livres').select_one('tbody')
 # print("soup.prettify() :\n", soup.prettify())
 
 orig_title="Oedipe"
 orig_authors=None    #sould be [] if filled...
-
+orig_authors=["Sénèque","Voltaire","Corneille"]
 if orig_authors:
    orig_thrs = " ".join(orig_authors)
 
 
 soup = BS(elem, "html5lib" ).select_one('div.mes_livres').select_one('tbody')
 
-mtchs = {}
+unsrt_match=[]
 x=soup.select('tr')
 for i in range(len(x)):
    # print("x[i].prettify() :\n", x[i].prettify())
    y = x[i].select_one('td.titre_livre > a.titre_v2')
    sous_url = y["href"].strip()
    titre = y.text.strip()
+   ttl=ret_clean_text(titre)
+   orig_ttl=ret_clean_text(orig_title)
    y = x[i].select_one('td.auteur > a.auteur_v2')
    auteur=y.text.strip()
+   aut=ret_clean_text(auteur)
+   maxi=0
+   if orig_authors:
+       for i in range(len(orig_authors)):
+           orig_authors[i] = ret_clean_text(orig_authors[i])
+           maxi = max(maxi, (SM(None,aut,orig_authors[i]).ratio()))
+   else:
+       orig_authors=[]
    # print(sous_url)
    # print(titre)
    # print(auteur)
-   mtchs[sous_url]=(titre,auteur)
+   unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi),orig_title,titre,orig_authors,auteur))
+srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)
+
+print(len(srt_match))
+
+for i in range(len(srt_match)):
+   print('srt_match[i] : ', srt_match[i])
    # print(mtchs)
    # print(20*"-*")
-for k, v in mtchs.items():
-   print(v)
 
-
-# result in the following... only the first name is available (each name in authors must be tried
-# )
-#
-# ('Oedipe', 'Pierre Corneille')
-# ('Oedipe', 'Sénèque')
-# ('Oedipe', 'Voltaire')
-# ('Oedipe', 'Clotilde Bruneau')
-# ('OEdipe', 'Anne-Catherine Vivet-Rémy')
-# ('Oedipe', 'André Gide')
-# ('Tragédies : Oedipe roi - Oedipe à colone - Antigone - Philoctète - Électre - Ajax - Les trachiniennes', 'Sophocle')
-# ("OEdipe roi/Le mythe d'OEdipe", 'Sophocle')
-# ('Oedipe - Oedipe travesti, parodie de Dominique', 'Voltaire')
-# ('Oedipe et Oedipe Recommence', 'Hubert Aquin')
 

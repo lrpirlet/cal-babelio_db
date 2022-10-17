@@ -21,7 +21,7 @@ result = SM(None, s1, s2).ratio()
 result is 0.9112903225806451... anything above .6 may be considered similar
 '''
 
-# the following make some calibre code available to my code
+# the following makes some calibre code available to my code
 from calibre.ebooks.metadata.sources.base import (Source, Option)
 from calibre.ebooks.metadata import check_isbn
 from calibre.utils.icu import lower
@@ -78,14 +78,6 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
         log.info(who, "rkt               : ", rkt)
         log.info(who, "wtf               : ", wtf)
 
-  # Note: le SEUL moment ou on doit passer d'un encodage des charactères à un autre est quand on reçoit des donneées
-  # d'un site web... tout, absolument tout, est encodé en uft_8 dans le plugin... J'ai vraiment peiné a trouver l'encodage
-  # des charracteres qui venaient de noosfere... Meme le decodage automatique se plantait...
-  # J'ai du isoler la création de la soup du decodage dans la fonction ret_soup().
-  # variable "from_encoding" isolée pour trouver quel est l'encodage d'origine...
-  #
-  # from_encoding="windows-1252"
-
     log.info(who, "Accessing url     : ", url)
     if rkt :
         log.info(who, "search parameters : ",rkt)
@@ -93,20 +85,15 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
         if debug: log.info(who, "formated parameters : ", rkt)
 
     resp = urlopen_with_retry(log, dbg_lvl, br, url, rkt, who)
-    # if debug: log.info(who,"...et from_encoding, c'est : ", from_encoding)
     sr, url_ret = resp[0], resp[1]
-    soup = BS(sr, "html5lib")       #, from_encoding=from_encoding) # needed when charset value is a lie
-    while (time.time() - start) < wtf:                        # avoid DoS detection by setting 1*cpu_count()
+    soup = BS(sr, "html5lib")
+    while (time.time() - start) < wtf:                        # avoid DoS detection by forcing a wtf delay
         pass
-    # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
+  # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
     return (soup, url_ret)
 
 def verify_isbn(log, dbg_lvl, isbn_str, who=''):
     '''
-    isbn_str est brute d'extraction... la fonction renvoie un isbn correct ou "invalide"
-    Notez qu'on doit supprimer les characteres de separation et les characteres restants apres extraction
-    et que l'on traite un mot de 10 ou 13 characteres.
-
     isbn_str is strait from extraction... function returns an ISBN maybe correct ...or not
     Characters irrelevant to ISBN and separators inside ISBN must be removed,
     the resulting word must be either 10 or 13 characters long.
@@ -120,8 +107,8 @@ def verify_isbn(log, dbg_lvl, isbn_str, who=''):
         if k in isbn_str:
             isbn_str=isbn_str.replace(k,"")
     if debug:
-        log.info("isbn_str cleaned : ",isbn_str)
-        log.info("return check_isbn(isbn_str) from verify_isbn\n")
+        log.info(who,"isbn_str cleaned : ",isbn_str)
+        log.info(who,"return check_isbn(isbn_str) from verify_isbn\n")
     return check_isbn(isbn_str)         # calibre does the check for me after cleaning...
 
 def ret_clean_text(log, dbg_lvl, text, who=''):
@@ -142,8 +129,8 @@ def ret_clean_text(log, dbg_lvl, text, who=''):
     clntxt=" ".join(txt.split())
 
     if debug:
-        log.info("cleaned text : ", clntxt)
-        log.info("return text from ret_clean_txt")
+        log.info(who,"cleaned text : ", clntxt)
+        log.info(who,"return text from ret_clean_txt")
 
     return clntxt
 
@@ -152,7 +139,7 @@ class Babelio(Source):
     name = 'Babelio_db'
     description = 'Télécharge les métadonnées et couverture depuis Babelio.com'
     author = '2021, Louis Richard Pirlet using VdF work as a base'
-    version = (3, 0, 0)
+    version = (0, 0, 5)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -185,23 +172,25 @@ class Babelio(Source):
                'debug_level',
                'number',
                3,
-               _("Verbosité du journal, de 0 à 15"),                                                   # verbosity of the log
-               _("Le niveau de verbosité:<br>"                                                         # the level of verbosity.
-                 " O un minimum de rapport,<br>"                                                       # value 0 will output the minimum,
-                 " 1 rapport étendu de __init__,<br>"                                                  # 1 debug messages of __init__
-                 " 2 rapport étendu de worker,<br>"                                                    # 2 debug messages of worker
-                 " 4 rapport étendu des annexes...<br>"                                                # 4 debug level of accessory code...
-                 " 8 timing... <br>"                                                                  # 8 debug level for timing
-                 " La somme 3, 5, 7 ou 15 peut être introduite, ainsi 15 donne un maximum de rapport.<br>"  # 3, 5 or 7 is the sum of the value defined above.
-                 " Note: mettre la verbosité = 15 pour rapport d'erreur")            # In fact it is a bitwise flag spread over the last 4 bits of debug_level
+               _("Verbosité du journal, de 0 à 15"),                            # verbosity of the log
+               _("Le niveau de verbosité:<br>"                                  # the level of verbosity.
+                 " O un minimum de rapport,<br>"                                # value 0 will output the minimum,
+                 " 1 rapport étendu de __init__,<br>"                           # 1 debug messages of __init__
+                 " 2 rapport étendu de worker,<br>"                             # 2 debug messages of worker
+                 " 4 rapport étendu des annexes...<br>"                         # 4 debug level of accessory code...
+                 " 8 rapport de timing... <br>"                                 # 8 debug level for timing
+                 " Une somme peut être introduite, tel que 11 (__init__ et worker et timing)."
+                 " Ainsi 15 donne un maximum d' information...<br>"             # 3, 5 or 7 is the sum of the value defined above.
+                 " Note: mettre la verbosité = 15 pour rapport d'erreur")       # In fact it is a bitwise flag spread over the last 4 bits of debug_level
         ),
         Option(
                 'Cover_wanted',
                 'bool',
                 False,
                 _("Autorise les couvertures vues sur Babelio"),
-                _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long)."
-                  "Attention, calibre rapporte: Impossible de trouver une couverture pour <titre>")
+                _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long). "
+                  "Attention, calibre rapporte: Impossible de trouver une couverture pour <titre>... "
+                  "Ce n'est pas une erreur.")
         ),
         Option(
                 'Pretty_wanted',
@@ -239,7 +228,7 @@ class Babelio(Source):
 
     def get_book_url(self, identifiers):
         '''
-        get_book_url : used by calibre to convert the identifier to a URL...
+        get_book_url : used by calibre to convert the identifier to an URL...
         return an url if bbl_id exists and is valid.
         For this to work, we need to define or find the minimum info to build a relevant url.
         '''
@@ -428,11 +417,9 @@ class Babelio(Source):
         log.info('In parse_search_results(self, log, orig_title, orig_authors, soup, br)')
         debug=self.dbg_lvl & 1
         if debug:
-            log.info("orig_title                : ", orig_title)
-            log.info("(inutilisé) orig_authors  : ", orig_authors)
+            log.info("orig_title    : ", orig_title)
+            log.info("orig_authors  : ", orig_authors)
 
-      # I doubt that we would have more than 12 reference in babelio for the same title with same list of authors
-      # code to get authors from babelio page is commented..
         unsrt_match, matches = [], []
         count=0
         while count < 5 :                                                       # loop over 6 first pages of search result (max 6 request @ 1.6 sec)
@@ -445,12 +432,20 @@ class Babelio(Source):
                     y = x[i].select_one('td.titre_livre > a.titre_v2')
                     sous_url = y["href"].strip()
                     titre = y.text.strip()
-                    # y = x[i].select_one('td.auteur > a.auteur_v2')
-                    # auteur=y.text.strip()
                     ttl=ret_clean_text(log, self.dbg_lvl, titre)
                     orig_ttl=ret_clean_text(log, self.dbg_lvl, orig_title)
-                    unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio())))
-
+                    y = x[i].select_one('td.auteur > a.auteur_v2')
+                    auteur=y.text.strip()
+                    aut=ret_clean_text(log, self.dbg_lvl, auteur)
+                    maxi=0
+                    if orig_authors:
+                        for i in range(len(orig_authors)):
+                            orig_authors[i] = ret_clean_text(log, self.dbg_lvl, orig_authors[i])
+                            maxi = max(maxi, (SM(None,aut,orig_authors[i]).ratio()))        # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
+                    else:
+                        orig_authors=[]
+                    unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi)))    # compute ratio comparing titre presented by babelio to requested title
+                    # unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi),titre,orig_title,auteur,orig_authors))   # may be long
             if not soup.select_one('.icon-next'):                               #
                 break                                                           # exit loop if no more next page
             count = count + 1                                                   #
@@ -459,7 +454,7 @@ class Babelio(Source):
             soup=ret_soup(log, self.dbg_lvl, br, nxtpg, wtf=1)[0]               # get new soup content and loop again, request MUST take at least 1 second
             time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
-        srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True) # find best matches over the orig_title
+        srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors
 
         log.info('nombre de références trouvées dans babelio', len(srt_match))
         # if debug:                                                                          # may be long
@@ -575,4 +570,5 @@ if __name__ == '__main__':
                 {'identifiers':{'isbn': '97820704485'}, 'title':'Le chasseur et son ombre', 'authors':['George R. R. Martin','Daniel Abraham','Gardner Dozois']},
                 [title_test("Le chasseur et son ombre", exact=True), authors_test(['George R. R. Martin','Daniel Abraham','Gardner Dozois'])]
             )
-        ])
+        ]
+        )

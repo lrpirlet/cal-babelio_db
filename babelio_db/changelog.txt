@@ -39,9 +39,9 @@ limitations que je rencontre:
   je ne comprends pratiquement rien... enfin, un tout petit peu quoi!
   OK pour __init__.py
 
-Ce travail effectué, je ferai parvenir à VdF les sources... Il pourrait, si il veut, améliorer sa version.
-Sauf avis contraire de VdF, je ne publierai pas ce site sur calibre...
-même si le travail restera visible sur github <https://github.com/lrpirlet/cal-babelio_db>
+Je n'ai pas retrouvé trace de VdF... Son travail , sous licence GPL V3 peut être modifié.
+J'aurais voulu le contacter avant de publier mon travail, basé sur le sien, sur mobileread...
+De toute manière, il restera visible sur github <https://github.com/lrpirlet/cal-babelio_db>
 
 Ce travail est open source... J'ai pris du plaisir à l'écrire, si vous pensez que ce travail
   doit être rétribué, choisissez une association caritative et donnez leur, un peu, avec une
@@ -203,5 +203,26 @@ clean up
 ---------------------------------------------------------------------
 Tient compte que tome peut être écrit Tome dans un titre/série
 ---------------------------------------------------------------------
-adapte babelio_db pour pouvoir mettre l'ancien babelio et celui-ci en parallèle: 
+adapte babelio_db pour pouvoir mettre l'ancien babelio et celui-ci en parallèle:
 le nom devient babelio_db et son id sera bbl_id...
+Ceci dit, metter et babelio et babelio_db en service est le plus sur moyen d'etre mis en quarantaine pour detection DoS
+---------------------------------------------------------------------
+modifie identify() pour mieux rechercher les livres en cherchant sur babelio le titre et en le comparant
+avec le titre demandé... En l'absence d'auteurs, cela permet de trier les titres que l'on garde
+(on veut eviter un DoS, et la mise en quarantaine...)
+---------------------------------------------------------------------
+introduit un délais dans ret_soup() de telle manière à éviter d'être expulsé de babelio
+(on évite la détection DoS - Denial of Service qui sature un site par un grand nombre de request)
+En fait, Chaque request doit durer 1 seconde et quand N workers travaillent en parallèle, je fixe
+le delais à N et demare chaque worker à une seconde d'intervalle.
+J'ai pu lancer l'update de 250 titres sans plus de problèmes...
+---------------------------------------------------------------------
+modifie identify() pour mieux rechercher les livres en associant aussi l'auteur dans le choix des 12 livres
+maximum à sélectionner.
+---------------------------------------------------------------------
+clean up: enlève les messages de debug, simplifie le code en evitant des sauts inutiles dans les méthodes...
+(pourquoi soumettre un titre de valeur None à une routine qui retourne None???)
+corrige des erreurs dues à des inconsistances sur le site de babelio...
+---------------------------------------------------------------------
+la version de babelio_db est (0,0,5)
+---------------------------------------------------------------------

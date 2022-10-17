@@ -49,7 +49,6 @@ class Worker(Thread):
             self.log.info(self.who,"self.timeout              : ", self.timeout)
             self.log.info(self.who,"self.with_cover           : ", self.with_cover)
             self.log.info(self.who,"self.with_pretty_comments : ", self.with_pretty_comments)
-            self.log.info(self.who,"worker submission time    : ", datetime.datetime.now().strftime("%H:%M:%S"))
 
     def run(self):
         '''
@@ -262,22 +261,6 @@ class Worker(Thread):
         '''
         self.log.info(self.who,"in parse_title_series(self, soup)\n")
 
-      # seems that the title of babelio is in fact of the form "la serie - editeur, tome 55 : le titre"
-      #
-      # PB1: "Guerrier de Lumière - Volume 1" reviens avec le titre "Guerrier de Lumière - Volume 1" si seul,
-      # revient avec "Guerrier de Lumière" si combiné avec d'autre plugin... Problème: confusion avec
-      # "Guerrier de Lumière - Volume 2" et "Guerrier de Lumière - Volume 3"
-      # PB2: "Les juges : Trois histoires italiennes" le titre affiché dans babelio est faut... le texte du livre donne
-      # pour titre: Les juges... combiné avec d'autre plugin les titre sort correctement
-      # PB3 "Dédicaces - Tome 2: Le chapelet de jade" Dédicaces est la série... Tome , not tome
-      #
-      # editeur seems to be preceded by - it can be missing... AND "-" may be part of serie: "grande-série"
-      # tome <num> seems to be surrounded by , or - and :
-      # tome may be written Tome
-      # title may include a : hopefully rare enough and NOT associated with a serie (should I look for " : " instead, or ???)
-      # so we can extract the title always, and the series if babelio title contains both ':' and tome
-      # series_seq is found just after tome and is numeric...
-
       # if soup.select_one(".livre_header_con") fails, an exception will be raised
         if self.debug:
             title_soup=soup.select_one(".livre_header_con").select_one("a")
@@ -365,7 +348,7 @@ class Worker(Thread):
                 self.log.info(self.who,"rkt : ",rkt)
             comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1)[0]
 
-        # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify())
+      # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify())
         return comments_soup
 
     def parse_cover(self, soup):
@@ -392,10 +375,10 @@ class Worker(Thread):
         self.log.info(self.who,"in parse_meta(self, soup)\n")
 
       # if soup.select_one(".livre_refs.grey_light") fails it will produce an exception
-      # note: when a class contains white characters use a dot instead
+      # note: when a class name contains white characters use a dot instead of the space
       # (blank means 2 subsequent classes for css selector)
         meta_soup = soup.select_one(".livre_refs.grey_light")
-        # self.log.info(self.who,"meta_soup prettyfied :\n",meta_soup.prettify())
+      # self.log.info(self.who,"meta_soup prettyfied :\n",meta_soup.prettify())
 
         bbl_publisher = None
         if meta_soup.select_one('a[href^="/editeur"]'):
@@ -437,13 +420,13 @@ class Worker(Thread):
 
       # if soup.select_one('.tags') fails it will produce an exception
         tag_soup=soup.select_one('.tags')
-        # if self.debug: self.log.info(self.who,"tag_soup prettyfied :\n",tag_soup.prettify())
+      # if self.debug: self.log.info(self.who,"tag_soup prettyfied :\n",tag_soup.prettify())
         tag_soup = soup.select_one('.tags').select('a')
         bbl_tags=[]
         for i in range(len(tag_soup)):
-            # if self.debug: self.log.info(self.who,"type(tag_soup[i])", type(tag_soup[i]))
+          # if self.debug: self.log.info(self.who,"type(tag_soup[i])", type(tag_soup[i]))
             tmp_tg = tag_soup[i].text.strip()
-            # if self.debug: self.log.info(self.who,tmp_tg)
+          # if self.debug: self.log.info(self.who,tmp_tg)
             bbl_tags.append(tmp_tg)
 
         bbl_tags = list(map(fixcase, bbl_tags))

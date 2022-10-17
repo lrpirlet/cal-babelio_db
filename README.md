@@ -20,7 +20,7 @@ J'ai développé ce plugin de calibre d'après le plugin existant de VdF pour r�
 8. Je préfère nettement les commentaires en HTML et beautifulsoup (utilisé dans calibre par ailleurs)
 9. J'ai horreur de ce langage de recherche et substitution (expression régulière) auquel je ne comprends pratiquement rien... enfin, un tout petit peu quoi!
 
-Ce travail effectué, je ferai parvenir à VdF les sources... Il pourrait, si il veut, améliorer sa version. Sauf avis contraire de VdF, je ne publierai pas ce site sur calibre... même si il restera visible sur github <https://github.com/lrpirlet/cal-babelio_db>
+Je n'ai pas retrouvé trace de VdF... Son travail , sous licence GPL V3 peut être modifié. J'aurais voulu le contacter avant de publier mon travail, basé sur le sien, sur mobileread... De toute manière, il restera visible sur github <https://github.com/lrpirlet/cal-babelio_db>
 
 Ce travail est open source... J'ai pris du plaisir à l'écrire, si vous pensez que ce travail doit être rétribué, choisissez une association caritative et donnez leur, un peu, avec une mention comme "Thanks to Louis Richard" ou "Merci à Louis Richard" ou quelque chose de similaire dans votre langue. Cela renforcera ma réputation (non publiée)...
 
