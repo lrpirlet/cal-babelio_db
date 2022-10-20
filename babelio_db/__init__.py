@@ -136,10 +136,10 @@ def ret_clean_text(log, dbg_lvl, text, who=''):
 
 class Babelio(Source):
 
-    name = 'Babelio_db'
-    description = 'Télécharge les métadonnées et couverture depuis Babelio.com'
-    author = '2021, Louis Richard Pirlet using VdF work as a base'
-    version = (0, 0, 5)
+    name                    = 'Babelio_db'
+    description             = _('Downloads metadata and covers from www.babelio.com')
+    author                  = '2021, Louis Richard Pirlet using VdF work as a base'
+    version                 = (0, 5, 0)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -162,8 +162,9 @@ class Babelio(Source):
                                   " même de Babelio... des temps extrèmement longs peuvent en être engendré.<br><br>"
                                   " Notez qu'une requête qui génère plus de 12 resultats se verra tronquée à 12..."
                                   " Il est possible de modifier ce comportement, mais au risque d'être banni de Babelio..."
-                                  " Dans cette même veine, utiliser en même temps les plugins babelio et babelio_db est moyen sùr"
-                                  " de provoquer trop de requêtes vers babelio.com.<br>"
+                                  " Dans cette même veine, utiliser en même temps les plugins babelio et babelio_db est un moyen"
+                                  " certain de provoquer trop de requêtes vers babelio.com..."
+                                  ' et donc être perçu comme une "DoS attack"...<br>'
                                   " <em>Je déconseille... <strong>(Vous êtes prévenus...)</strong></em>"
                                   )
 
@@ -180,8 +181,8 @@ class Babelio(Source):
                  " 4 rapport étendu des annexes...<br>"                         # 4 debug level of accessory code...
                  " 8 rapport de timing... <br>"                                 # 8 debug level for timing
                  " Une somme peut être introduite, tel que 11 (__init__ et worker et timing)."
-                 " Ainsi 15 donne un maximum d' information...<br>"             # 3, 5 or 7 is the sum of the value defined above.
-                 " Note: mettre la verbosité = 15 pour rapport d'erreur")       # In fact it is a bitwise flag spread over the last 4 bits of debug_level
+                 " Ainsi 11 donne les information de __init__, worker et timming...<br>"             # 3, 5 or 7 is the sum of the value defined above.
+                 " Note: mettre la verbosité = 15 (maximum d'information) pour rapport d'erreur")    # In fact it is a bitwise flag spread over the last 4 bits of debug_level
         ),
         Option(
                 'Cover_wanted',
