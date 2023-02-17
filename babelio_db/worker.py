@@ -130,6 +130,7 @@ class Worker(Thread):
             self.log.info(self.who,"Temps après parse_authors() ... : ", time.time() - start)
 
       # find isbn (EAN), publisher and publication date.. ok
+        bbl_isbn, bbl_pubdate, bbl_publisher = None, None, None
         try:
             bbl_isbn, bbl_publisher, bbl_pubdate = self.parse_meta(soup)
 
@@ -138,7 +139,6 @@ class Worker(Thread):
 
         if self.debugt:
             self.log.info(self.who,"Temps après parse_meta() ... : ", time.time() - start)
-            # bbl_isbn, bbl_pubdate, bbl_publisher = None, None, None
 
       # find the rating.. OK
         try:
@@ -272,8 +272,8 @@ class Worker(Thread):
             bbl_title=tmp_ttl.split(":")[-1].strip()
             bbl_series=tmp_ttl.replace(" -", ",").split(":")[0].split(",")[0].strip()
             if bbl_series:
-                bbl_series_seq = tmp_ttl.split("tome")[-1].split(":")[0].strip()
-                if bbl_series_seq.isnumeric:
+                bbl_series_seq = tmp_ttl.replace(bbl_title,"").replace(":","").split("tome")[-1].strip()
+                if bbl_series_seq.isnumeric():
                     bbl_series_seq = float(bbl_series_seq)
                 else:
                     bbl_series_seq = 0.0
@@ -398,7 +398,7 @@ class Worker(Thread):
                 tmp_pbdt=tmp_dt.split("/")
                 # if self.debug: self.log.info(self.who,"tmp_pbdt : ", tmp_pbdt)
                 for i in range(len(tmp_pbdt)):
-                    if tmp_pbdt[i].isnumeric:
+                    if tmp_pbdt[i].isnumeric():
                         if i==0 and int(tmp_pbdt[i]) <= 31: continue
                         elif i==1 and int(tmp_pbdt[i]) <= 12 : continue
                         elif i==2 and int(tmp_pbdt[i]) > 1700:    # reject year -1, assumes no book in with date < 1700

@@ -139,7 +139,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (0, 5, 0)
+    version                 = (0, 5, 1)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -375,8 +375,8 @@ class Babelio(Source):
                 log.error('Pas de résultat pour la requête : ', query)
                 log.error("Soit ce livre n'est pas connu de babelio, soit les métadonnées ")
                 log.error('sont incorrectes ou insuffisantes pour la requête.')
-                log.error("Verifier la validité des ids soumis (ISBN, babelio) et ")
-                log.error("la bonne orthographe des auteurs.")
+                log.error("Verifier la présence d'un titre, la bonne orthographe des auteurs")
+                log.error("et la validité des ids soumis (ISBN, babelio).")
                 return
 
         if debug: log.info("matches : ", matches)
