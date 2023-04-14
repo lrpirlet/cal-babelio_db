@@ -80,7 +80,7 @@ class Worker(Thread):
         if self.debugt:
             self.log.info(self.who,"Temps après ret_soup()... : ", time.time() - start)
 
-        # if self.debug: self.log.info(self.who,"get details soup prettyfied :\n", soup.prettify())   # may be very long
+        # if self.debug: self.log.info(self.who,"get details soup prettyfied :\n", soup.prettify())   # hide_it  #may be very long
 
       # find the babelio id
         try:
@@ -184,7 +184,7 @@ class Worker(Thread):
       # find the comments..  OK
       # and format them in a fixed structure for the catalog... OK
       # If the text only, it is ok the but formating is lost... a bit sad
-      # when author wants a new line in the text: conversation between fictional characters
+      # when author wants a new line in the text: conversion between fictional characters
       # so I will "impose" html comments but leave choice on pretty_comments.. OK
         comments = None
         try:
@@ -264,7 +264,7 @@ class Worker(Thread):
       # if soup.select_one(".livre_header_con") fails, an exception will be raised
         if self.debug:
             title_soup=soup.select_one(".livre_header_con").select_one("a")
-#            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify()) # may be long
+#            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify()) # hide_it # may be long
         tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
         bbl_series, bbl_series_seq ="", ""
         tmp_ttl=tmp_ttl.replace("Tome","tome")
@@ -298,10 +298,10 @@ class Worker(Thread):
         authors_soup=soup.select_one(".livre_con").select('span[itemprop="author"]')
         bbl_autors=[]
         for i in range(len(authors_soup)):
-          # if self.debug: self.log.info(self.who,"authors_soup prettyfied #",i," :\n", authors_soup[i].prettify())
+          # if self.debug: self.log.info(self.who,"authors_soup prettyfied #",i," :\n", authors_soup[i].prettify()) # hide_it
             tmp_thrs = authors_soup[i].select_one('span[itemprop="name"]').text.split()
             thrs=" ".join(tmp_thrs)
-          # if self.debug: self.log.info(self.who,"tmp_thrs : ",tmp_thrs, thrs)
+          # if self.debug: self.log.info(self.who,"tmp_thrs : ",tmp_thrs, thrs) # hide_it
             bbl_autors.append(thrs)
         if self.debug:
             self.log.info(self.who,"bbl_autors : ", bbl_autors)
@@ -321,7 +321,7 @@ class Worker(Thread):
 
       # if soup.select_one('span[itemprop="aggregateRating"]') fails, an exception will be raised
         rating_soup=soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
-      # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify())
+      # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify()) # hide_it
         bbl_rating = float(rating_soup.text.strip())
 
         if self.debug:
@@ -348,7 +348,7 @@ class Worker(Thread):
                 self.log.info(self.who,"rkt : ",rkt)
             comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1)[0]
 
-      # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify())
+      # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify()) # hide_it
         return comments_soup
 
     def parse_cover(self, soup):
@@ -360,7 +360,7 @@ class Worker(Thread):
 
       # if soup.select_one('link[rel="image_src"]') fails, an exception will be raised
         cover_soup = soup.select_one('link[rel="image_src"]')
-        # if self.debug: self.log.info(self.who,"cover_soup prettyfied :\n", cover_soup.prettify())
+        # if self.debug: self.log.info(self.who,"cover_soup prettyfied :\n", cover_soup.prettify()) # hide_it
         bbl_cover = cover_soup['href']
 
         if self.debug:
@@ -378,7 +378,7 @@ class Worker(Thread):
       # note: when a class name contains white characters use a dot instead of the space
       # (blank means 2 subsequent classes for css selector)
         meta_soup = soup.select_one(".livre_refs.grey_light")
-      # self.log.info(self.who,"meta_soup prettyfied :\n",meta_soup.prettify())
+      # self.log.info(self.who,"meta_soup prettyfied :\n",meta_soup.prettify()) # hide_it
 
         bbl_publisher = None
         if meta_soup.select_one('a[href^="/editeur"]'):
@@ -396,7 +396,7 @@ class Worker(Thread):
             elif "/" in mta:
                 tmp_dt = mta.strip().replace("(","").replace(")","")
                 tmp_pbdt=tmp_dt.split("/")
-                # if self.debug: self.log.info(self.who,"tmp_pbdt : ", tmp_pbdt)
+                # if self.debug: self.log.info(self.who,"tmp_pbdt : ", tmp_pbdt) # hide_it
                 for i in range(len(tmp_pbdt)):
                     if tmp_pbdt[i].isnumeric():
                         if i==0 and int(tmp_pbdt[i]) <= 31: continue
@@ -420,13 +420,13 @@ class Worker(Thread):
 
       # if soup.select_one('.tags') fails it will produce an exception
         tag_soup=soup.select_one('.tags')
-      # if self.debug: self.log.info(self.who,"tag_soup prettyfied :\n",tag_soup.prettify())
+      # if self.debug: self.log.info(self.who,"tag_soup prettyfied :\n",tag_soup.prettify()) # hide_it
         tag_soup = soup.select_one('.tags').select('a')
         bbl_tags=[]
         for i in range(len(tag_soup)):
-          # if self.debug: self.log.info(self.who,"type(tag_soup[i])", type(tag_soup[i]))
+          # if self.debug: self.log.info(self.who,"type(tag_soup[i])", type(tag_soup[i])) # hide_it
             tmp_tg = tag_soup[i].text.strip()
-          # if self.debug: self.log.info(self.who,tmp_tg)
+          # if self.debug: self.log.info(self.who,tmp_tg) # hide_it
             bbl_tags.append(tmp_tg)
 
         bbl_tags = list(map(fixcase, bbl_tags))

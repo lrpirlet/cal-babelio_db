@@ -89,7 +89,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
     soup = BS(sr, "html5lib")
     while (time.time() - start) < wtf:                        # avoid DoS detection by forcing a wtf delay
         pass
-  # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # très utile parfois, mais que c'est long...
+  # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # hide_it # très utile parfois, mais que c'est long...
     return (soup, url_ret)
 
 def verify_isbn(log, dbg_lvl, isbn_str, who=''):
@@ -145,7 +145,7 @@ class Babelio(Source):
     capabilities = frozenset(['identify', 'cover'])
     touched_fields = frozenset(['title', 'authors', 'identifier:isbn', 'identifier:babelio_db',
                                 'language', 'rating', 'comments', 'publisher', 'pubdate', 'series', 'tags'])
-    has_html_comments = True        # quand les commentatires sont formatés html
+    has_html_comments = True        # quand les commentaires sont formatés html
     supports_gzip_transfer_encoding = True
 
     ID_NAME = 'babelio_id'
@@ -458,8 +458,8 @@ class Babelio(Source):
         srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors
 
         log.info('nombre de références trouvées dans babelio', len(srt_match))
-        # if debug:                                                                          # may be long
-        #     for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])      # may be long
+        # if debug:                                                                          # hide_it # may be long
+        #     for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])      # hide_it # may be long
 
         srt_match = srt_match[:12]                                              # limit to 12 requests (max 12 requests @ #workers sec)
         for i in range(len(srt_match)):
