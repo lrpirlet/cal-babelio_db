@@ -201,10 +201,14 @@ class Worker(Thread):
             bbl_reference = BS('<div><p>Référence: <a href="' + self.url + '">' + self.url + '</a></p></div>',"lxml")
           # on commence par la référence qui sera toujours presente dans le commentaire si with_pretty_comments est True
             bbl_comments = bbl_reference
+          # si part d'une série, crèe et ajoute la référence à la série.
+            if bbl_series_url:
+                bbl_serie_ref = BS('<div><p>Réf. de la série: <a href="' + bbl_series_url + '">' + bbl_series_url + '</a></p></div>',"lxml")
+                bbl_comments.append(bbl_serie_ref)  # si part d'une série, ajoute la référence à la série.
           # cree un titre si du commentaire existe
             if comments:
                 bbl_titre = BS('<div><hr><p style="font-weight: bold; font-size: 18px"> Résumé </p><hr></div>',"lxml")
-              # on rajoute le titre et le commentaire
+              # on ajoute le titre et le commentaire
                 bbl_comments.append(bbl_titre)      # ensuite le titre
                 bbl_comments.append(comments)       # on ajoute les commentatires
 
@@ -282,7 +286,7 @@ class Worker(Thread):
 
 
         if soup.select_one('a[href^="/serie/"]'):
-            self.log.info(self.who,'soup.select_one("head>title").string : ', soup.select_one("head>title").string) # hide_it
+            # self.log.info(self.who,'soup.select_one("head>title").string : ', soup.select_one("head>title").string) # hide_it
             bbl_title = (soup.select_one("head>title").string).split(' - ')[0].strip()
             bbl_title = bbl_title.split(":")[-1].strip()
 
@@ -318,7 +322,7 @@ class Worker(Thread):
         es_soup = es_rsp[0]
         bbl_series_url = es_rsp[1]
         # self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
-        self.log.info(self.who,'es_soup.select_one("head>title").string : ', es_soup.select_one("head>title").string) # hide_it
+        # self.log.info(self.who,'es_soup.select_one("head>title").string : ', es_soup.select_one("head>title").string) # hide_it
 
         bbl_series = (es_soup.select_one("head>title").string).split('-')[0].strip()
 
