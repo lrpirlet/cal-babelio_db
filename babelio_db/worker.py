@@ -54,7 +54,7 @@ class Worker(Thread):
         '''
         this control the rest of the worker process
         '''
-        self.log.info(self.who,"in run(self)\n")
+        self.log.info("\n"+self.who,"in run(self)")
 
         try:
             self.get_details()
@@ -65,13 +65,13 @@ class Worker(Thread):
         '''
         sets details this code uploads url then calls parse_details
         '''
-        self.log.info(self.who,"in get_details(self)\n")
+        self.log.info("\n"+self.who,"in get_details(self)")
         if self.debugt:
             start = time.time()
             self.log.info(self.who,"in get details(), start time : ", start)
         if self.debug:
             self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=None, who='')")
-            self.log.info(self.who,"self.url : ", self.url, "\n")
+            self.log.info(self.who,"self.url : ", self.url, "")
 
       # get the babelio page content
         rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who)
@@ -99,14 +99,14 @@ class Worker(Thread):
         gathers all details needed to complete the calibre metadata, handels
         errors and sets mi
         '''
-        self.log.info(self.who,"in parse_details(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_details(self, soup)")
         if self.debugt:
             start = time.time()
             self.log.info(self.who,"in parse_details(), new start : ", start)
 
       # find title, serie and serie_seq.. OK
         try:
-            bbl_title, bbl_series, bbl_series_seq = self.parse_title_series(soup)
+            bbl_title, bbl_series, bbl_series_seq, bbl_series_url = self.parse_title_series(soup)
         except:
             self.log.exception('Erreur en cherchant le titre dans : %r' % self.url)
             bbl_title = None
@@ -242,7 +242,7 @@ class Worker(Thread):
         returns either None or a valid bbl_id; bbl_id is a unique id that, combined with
         fixed partial address string, gives the complete url address of the book.
         '''
-        self.log.info(self.who,"in parse_bbl_id\n")
+        self.log.info("\n"+self.who,"in parse_bbl_id")
 
         bbl_id = ""
         if "https://www.babelio.com/livres/" in url:
@@ -259,40 +259,83 @@ class Worker(Thread):
         get the book title from the url
         this title may be located in the <head> or in the <html> part
         '''
-        self.log.info(self.who,"in parse_title_series(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_title_series(self, soup)")
 
       # if soup.select_one(".livre_header_con") fails, an exception will be raised
-        if self.debug:
-            title_soup=soup.select_one(".livre_header_con").select_one("a")
-#            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify()) # hide_it # may be long
-        tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
-        bbl_series, bbl_series_seq ="", ""
-        tmp_ttl=tmp_ttl.replace("Tome","tome")
-        if ":" and "tome" in tmp_ttl:
-            bbl_title=tmp_ttl.split(":")[-1].strip()
-            bbl_series=tmp_ttl.replace(" -", ",").split(":")[0].split(",")[0].strip()
-            if bbl_series:
-                bbl_series_seq = tmp_ttl.replace(bbl_title,"").replace(":","").split("tome")[-1].strip()
-                if bbl_series_seq.isnumeric():
-                    bbl_series_seq = float(bbl_series_seq)
-                else:
-                    bbl_series_seq = 0.0
+        bbl_series, bbl_series_seq, bbl_series_url = "", "", ""
+#         if self.debug:
+#             title_soup=soup.select_one(".livre_header_con").select_one("a")
+# #            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify()) # hide_it # may be long
+#         tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
+#         tmp_ttl=tmp_ttl.replace("Tome","tome")
+#         if ":" and "tome" in tmp_ttl:
+#             bbl_title=tmp_ttl.split(":")[-1].strip()
+#             bbl_series=tmp_ttl.replace(" -", ",").split(":")[0].split(",")[0].strip()
+#             if bbl_series:
+#                 bbl_series_seq = tmp_ttl.replace(bbl_title,"").replace(":","").split("tome")[-1].strip()
+#                 if bbl_series_seq.isnumeric():
+#                     bbl_series_seq = float(bbl_series_seq)
+#                 else:
+#                     bbl_series_seq = 0.0
+#         else:
+#             bbl_title=tmp_ttl.strip()
+
+
+        if soup.select_one('a[href^="/serie/"]'):
+            self.log.info(self.who,'soup.select_one("head>title").string : ', soup.select_one("head>title").string) # hide_it
+            bbl_title = (soup.select_one("head>title").string).split(' - ')[0].strip()
+            bbl_title = bbl_title.split(":")[-1].strip()
+
+            es_url = "https://www.babelio.com" + soup.select_one('a[href^="/serie/"]').get('href')
+            if self.debug:
+                self.log.info(self.who,'url de la serie :', es_url)
+            try:
+                bbl_series, bbl_series_seq, bbl_series_url = self.parse_extended_serie(es_url, bbl_title)
+            except:
+                self.log.exception('Erreur en cherchant la serie dans : %r' % es_url)
         else:
-            bbl_title=tmp_ttl.strip()
+            bbl_title = (soup.select_one("head>title").string).split(' - ')[0].strip()
 
         if self.debug:
-            self.log.info(self.who,"tmp_ttl         : ", tmp_ttl)
+#            self.log.info(self.who,"tmp_ttl         : ", tmp_ttl)
             self.log.info(self.who,"bbl_title       : ", bbl_title)
             self.log.info(self.who,"bbl_series      : ", bbl_series)
             self.log.info(self.who,"bbl_series_seq  : ", bbl_series_seq)
+            self.log.info(self.who,"bbl_series_url   : ", bbl_series_url)
 
-        return (bbl_title, bbl_series, bbl_series_seq)
+        return (bbl_title, bbl_series, bbl_series_seq, bbl_series_url)
+
+    def parse_extended_serie(self, es_url, bbl_title):
+        '''
+        a serie url exists then this get the page,
+        extract the serie name and the url according to babelio
+        '''
+        self.log.info("\n"+self.who,"parse_extended_serie(self, es_url)")
+
+        bbl_series, bbl_series_seq ="", ""
+
+        es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who, wtf=0.5)
+        es_soup = es_rsp[0]
+        bbl_series_url = es_rsp[1]
+        # self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
+        self.log.info(self.who,'es_soup.select_one("head>title").string : ', es_soup.select_one("head>title").string) # hide_it
+
+        bbl_series = (es_soup.select_one("head>title").string).split('-')[0].strip()
+
+        for i in es_soup.select(".cr_droite"):
+            if bbl_title in i.get_text():
+                # self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
+                bbl_series_seq = i.get_text().split('tome :')[-1].strip()
+                if bbl_series_seq.isnumeric():
+                    bbl_series_seq = float(bbl_series_seq)
+        return (bbl_series, bbl_series_seq, bbl_series_url)
+
 
     def parse_authors(self, soup):
         '''
         get authors from the url, may be located in head (indirectly) or in the html part
         '''
-        self.log.info(self.who,"in parse_authors(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_authors(self, soup)")
 
       # if soup.select_one(".livre_con") fails, an exception will be raised
         authors_soup=soup.select_one(".livre_con").select('span[itemprop="author"]')
@@ -317,7 +360,7 @@ class Worker(Thread):
         '''
         get rating from the url located in the html part
         '''
-        self.log.info(self.who,"in parse_rating(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_rating(self, soup)")
 
       # if soup.select_one('span[itemprop="aggregateRating"]') fails, an exception will be raised
         rating_soup=soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
@@ -333,7 +376,7 @@ class Worker(Thread):
         get resume from soup, may need access to the page again.
         Returns it with at title, html formatted.
         '''
-        self.log.info(self.who,"in parse_comments(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_comments(self, soup)")
 
         comments_soup = soup.select_one('.livre_resume')
         if comments_soup.select_one('a[onclick]'):
@@ -355,7 +398,7 @@ class Worker(Thread):
         '''
         get cover address either from head or from html part
         '''
-        self.log.info(self.who,"in parse_cover(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_cover(self, soup)")
 
 
       # if soup.select_one('link[rel="image_src"]') fails, an exception will be raised
@@ -372,7 +415,7 @@ class Worker(Thread):
         '''
         get publisher, isbn ref, publication date from html part
         '''
-        self.log.info(self.who,"in parse_meta(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_meta(self, soup)")
 
       # if soup.select_one(".livre_refs.grey_light") fails it will produce an exception
       # note: when a class name contains white characters use a dot instead of the space
@@ -416,7 +459,7 @@ class Worker(Thread):
         '''
         get tags from html part
         '''
-        self.log.info(self.who,"in parse_tags(self, soup)\n")
+        self.log.info("\n"+self.who,"in parse_tags(self, soup)")
 
       # if soup.select_one('.tags') fails it will produce an exception
         tag_soup=soup.select_one('.tags')
