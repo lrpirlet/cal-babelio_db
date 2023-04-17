@@ -224,10 +224,18 @@ clean up: enlève les messages de debug, simplifie le code en evitant des sauts 
 (pourquoi soumettre un titre de valeur None à une routine qui retourne None???)
 corrige des erreurs dues à des inconsistances sur le site de babelio...
 ---------------------------------------------------------------------
-la version de babelio_db est (0,0,5)
+la version de babelio_db est (0,5,0)
 ---------------------------------------------------------------------
 repair 2 occurences of misspelled isnumeric instead of isnumeric()...
 leading to an uncrontroled crash in the rare occurence of a "/" in the editor field...
 ---------------------------------------------------------------------
 improved series_seq algoritm for when tome is both in the title tring and in the series field
+---------------------------------------------------------------------
+refactor authors extraction, to avoid finding a translator as an author... The authors
+is now used to better extract the book title...
+refactor title, series series_seq , now the presence of a link to series directs the search
+of series and series_seq...
+Added  a link in the comments to display the series url... this is also controlled by
+"autorise un commentaire etendu" in the plugin configuration.
+This MAY change the title of some book as assigned before.
 ---------------------------------------------------------------------

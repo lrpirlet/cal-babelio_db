@@ -74,7 +74,7 @@ class Worker(Thread):
             self.log.info(self.who,"self.url : ", self.url, "")
 
       # get the babelio page content
-        rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who)
+        rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who, wtf=1.2)
         soup = rsp[0]
 
         if self.debugt:
@@ -104,16 +104,6 @@ class Worker(Thread):
             start = time.time()
             self.log.info(self.who,"in parse_details(), new start : ", start)
 
-      # find title, serie and serie_seq.. OK
-        try:
-            bbl_title, bbl_series, bbl_series_seq, bbl_series_url = self.parse_title_series(soup)
-        except:
-            self.log.exception('Erreur en cherchant le titre dans : %r' % self.url)
-            bbl_title = None
-
-        if self.debugt:
-            self.log.info(self.who,"Temps après parse_title_series() ... : ", time.time() - start)
-
       # find authors.. OK
         try:
             bbl_authors = self.parse_authors(soup)
@@ -121,13 +111,23 @@ class Worker(Thread):
             self.log.info('Erreur en cherchant l\'auteur dans: %r' % self.url)
             bbl_authors = []
 
+        if self.debugt:
+            self.log.info(self.who,"Temps après parse_authors() ... : ", time.time() - start)
+
+      # find title, serie and serie_seq.. OK
+        try:
+            bbl_title, bbl_series, bbl_series_seq, bbl_series_url = self.parse_title_series(soup, bbl_authors)
+        except:
+            self.log.exception('Erreur en cherchant le titre dans : %r' % self.url)
+            bbl_title = None
+
+        if self.debugt:
+            self.log.info(self.who,"Temps après parse_title_series() ... : ", time.time() - start)
+
         if not bbl_title or not bbl_authors :
             self.log.error('Impossible de trouver le titre/auteur dans %r' % self.url)
             self.log.error('Titre: %r Auteurs: %r' % (bbl_title, bbl_authors))
             # return
-
-        if self.debugt:
-            self.log.info(self.who,"Temps après parse_authors() ... : ", time.time() - start)
 
       # find isbn (EAN), publisher and publication date.. ok
         bbl_isbn, bbl_pubdate, bbl_publisher = None, None, None
@@ -258,54 +258,47 @@ class Worker(Thread):
         else:
             return None
 
-    def parse_title_series(self, soup):
+    def parse_title_series(self, soup, bbl_authors):
         '''
         get the book title from the url
         this title may be located in the <head> or in the <html> part
         '''
-        self.log.info("\n"+self.who,"in parse_title_series(self, soup)")
+        self.log.info("\n"+self.who,"in parse_title_series(self, soup, bbl_authors)")
 
       # if soup.select_one(".livre_header_con") fails, an exception will be raised
         bbl_series, bbl_series_seq, bbl_series_url = "", "", ""
-#         if self.debug:
-#             title_soup=soup.select_one(".livre_header_con").select_one("a")
-# #            self.log.info(self.who,"title_soup prettyfied :\n", title_soup.prettify()) # hide_it # may be long
-#         tmp_ttl=soup.select_one(".livre_header_con").select_one("a").text.strip()
-#         tmp_ttl=tmp_ttl.replace("Tome","tome")
-#         if ":" and "tome" in tmp_ttl:
-#             bbl_title=tmp_ttl.split(":")[-1].strip()
-#             bbl_series=tmp_ttl.replace(" -", ",").split(":")[0].split(",")[0].strip()
-#             if bbl_series:
-#                 bbl_series_seq = tmp_ttl.replace(bbl_title,"").replace(":","").split("tome")[-1].strip()
-#                 if bbl_series_seq.isnumeric():
-#                     bbl_series_seq = float(bbl_series_seq)
-#                 else:
-#                     bbl_series_seq = 0.0
-#         else:
-#             bbl_title=tmp_ttl.strip()
 
+      # get the title
 
+        bbl_title = (soup.select_one("head>title").string)
+        for name in bbl_authors:
+            self.log.info(self.who,'name : ', name)
+            if name in bbl_title:
+                self.log.info(self.who,'bbl_title', bbl_title)
+                bbl_title = bbl_title.split(" - "+name)[0].strip()  # delete separation, auteur et le reste...
+                bbl_title=bbl_title.replace("Tome","tome")          # remplace toute instance de Tome par tome
+                break
+        if self.debug:
+            self.log.info(self.who,"bbl_title       : ", bbl_title)
+
+      # get the series
         if soup.select_one('a[href^="/serie/"]'):
-            # self.log.info(self.who,'soup.select_one("head>title").string : ', soup.select_one("head>title").string) # hide_it
-            bbl_title = (soup.select_one("head>title").string).split(' - ')[0].strip()
-            bbl_title = bbl_title.split(":")[-1].strip()
 
+          # find true url for the series
             es_url = "https://www.babelio.com" + soup.select_one('a[href^="/serie/"]').get('href')
             if self.debug:
+                self.log.info(self.who,"bbl_title       : ", bbl_title)
                 self.log.info(self.who,'url de la serie :', es_url)
+
+          # get series infos from the series page
             try:
                 bbl_series, bbl_series_seq, bbl_series_url = self.parse_extended_serie(es_url, bbl_title)
             except:
                 self.log.exception('Erreur en cherchant la serie dans : %r' % es_url)
-        else:
-            bbl_title = (soup.select_one("head>title").string).split(' - ')[0].strip()
 
-        if self.debug:
-#            self.log.info(self.who,"tmp_ttl         : ", tmp_ttl)
-            self.log.info(self.who,"bbl_title       : ", bbl_title)
-            self.log.info(self.who,"bbl_series      : ", bbl_series)
-            self.log.info(self.who,"bbl_series_seq  : ", bbl_series_seq)
-            self.log.info(self.who,"bbl_series_url   : ", bbl_series_url)
+          # ne garde que l'essence du titre
+            if "tome" and ":" in bbl_title:
+                bbl_title = bbl_title.split(":")[-1].strip()
 
         return (bbl_title, bbl_series, bbl_series_seq, bbl_series_url)
 
@@ -318,11 +311,10 @@ class Worker(Thread):
 
         bbl_series, bbl_series_seq ="", ""
 
-        es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who, wtf=0.5)
+        es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who, wtf=1.2)
         es_soup = es_rsp[0]
         bbl_series_url = es_rsp[1]
         # self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
-        # self.log.info(self.who,'es_soup.select_one("head>title").string : ', es_soup.select_one("head>title").string) # hide_it
 
         bbl_series = (es_soup.select_one("head>title").string).split('-')[0].strip()
 
@@ -332,6 +324,12 @@ class Worker(Thread):
                 bbl_series_seq = i.get_text().split('tome :')[-1].strip()
                 if bbl_series_seq.isnumeric():
                     bbl_series_seq = float(bbl_series_seq)
+
+        if self.debug:
+            self.log.info(self.who,"bbl_series      : ", bbl_series)
+            self.log.info(self.who,"bbl_series_seq  : ", bbl_series_seq)
+            self.log.info(self.who,"bbl_series_url  : ", bbl_series_url)
+
         return (bbl_series, bbl_series_seq, bbl_series_url)
 
 
@@ -342,23 +340,20 @@ class Worker(Thread):
         self.log.info("\n"+self.who,"in parse_authors(self, soup)")
 
       # if soup.select_one(".livre_con") fails, an exception will be raised
-        authors_soup=soup.select_one(".livre_con").select('span[itemprop="author"]')
-        bbl_autors=[]
+        sub_soup=soup.select_one(".livre_con")
+        # self.log.info(self.who,"sub_soup prettyfied # :\n", sub_soup.prettify()) # hide_it
+        authors_soup=sub_soup.select('span[itemprop="author"]')
+        bbl_authors=[]
         for i in range(len(authors_soup)):
-          # if self.debug: self.log.info(self.who,"authors_soup prettyfied #",i," :\n", authors_soup[i].prettify()) # hide_it
+            # self.log.info(self.who,"authors_soup prettyfied #",i," :\n", authors_soup[i].prettify()) # hide_it
             tmp_thrs = authors_soup[i].select_one('span[itemprop="name"]').text.split()
             thrs=" ".join(tmp_thrs)
-          # if self.debug: self.log.info(self.who,"tmp_thrs : ",tmp_thrs, thrs) # hide_it
-            bbl_autors.append(thrs)
-        if self.debug:
-            self.log.info(self.who,"bbl_autors : ", bbl_autors)
-
-        bbl_autors = fixauthors(bbl_autors)
+            bbl_authors.append(thrs)
 
         if self.debug:
-            self.log.info(self.who,"return bbl_autors", bbl_autors)
+            self.log.info(self.who,"return bbl_authors", bbl_authors)
 
-        return bbl_autors
+        return bbl_authors
 
     def parse_rating(self, soup):
         '''
@@ -368,7 +363,7 @@ class Worker(Thread):
 
       # if soup.select_one('span[itemprop="aggregateRating"]') fails, an exception will be raised
         rating_soup=soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
-      # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify()) # hide_it
+        # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify()) # hide_it
         bbl_rating = float(rating_soup.text.strip())
 
         if self.debug:
@@ -393,7 +388,7 @@ class Worker(Thread):
                 self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=rkt, who=self.who")
                 self.log.info(self.who,"url : ",url)
                 self.log.info(self.who,"rkt : ",rkt)
-            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1)[0]
+            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1.2)[0]
 
       # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify()) # hide_it
         return comments_soup
@@ -471,9 +466,7 @@ class Worker(Thread):
         tag_soup = soup.select_one('.tags').select('a')
         bbl_tags=[]
         for i in range(len(tag_soup)):
-          # if self.debug: self.log.info(self.who,"type(tag_soup[i])", type(tag_soup[i])) # hide_it
             tmp_tg = tag_soup[i].text.strip()
-          # if self.debug: self.log.info(self.who,tmp_tg) # hide_it
             bbl_tags.append(tmp_tg)
 
         bbl_tags = list(map(fixcase, bbl_tags))

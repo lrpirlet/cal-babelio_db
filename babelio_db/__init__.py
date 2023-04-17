@@ -335,7 +335,7 @@ class Babelio(Source):
                 if isbn:
                     query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
                     log.info("ISBN identifier trouvé, on cherche cet ISBN sur babelio : ", query)
-                    soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+                    soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.2)[0]
                     matches = self.parse_search_results(log, title, authors, soup, br)
                     query=None
 
@@ -350,7 +350,7 @@ class Babelio(Source):
         if not (matches or query) and authors:
             log.info("Pas de résultat avec babelio_id ou avec l'ISBN, on recherche les auteurs et le titre.\n")
             query = self.create_query(log, title=title, authors=authors, only_first_author=False)
-            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.2)[0]
             matches = self.parse_search_results(log, title, authors, soup, br)
             query=None
 
@@ -360,7 +360,7 @@ class Babelio(Source):
             for n in range(len(authors)):
                 log.info('Auteur utilisé : ', authors[n],'\n')
                 query = self.create_query(log, title=title, authors=[authors[n]])
-                soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+                soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.2)[0]
                 matches = self.parse_search_results(log, title, authors, soup, br)
                 query=None
                 if matches: break
@@ -369,7 +369,7 @@ class Babelio(Source):
         if not (matches or query):
             log.info('Pas de résultat, on utilise uniquement le titre (on peut avoir de la chance! ).\n')
             query = self.create_query(log, title=title)
-            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1)[0]
+            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.2)[0]
             matches = self.parse_search_results(log, title, authors, soup, br)
             if not matches:
                 log.error('Pas de résultat pour la requête : ', query)
@@ -452,7 +452,7 @@ class Babelio(Source):
             count = count + 1                                                   #
             nxtpg = Babelio.BASE_URL + soup.select_one('.icon-next')["href"]    # get next page adress
             if debug: log.info("next page : ",nxtpg)                            #
-            soup=ret_soup(log, self.dbg_lvl, br, nxtpg, wtf=1)[0]               # get new soup content and loop again, request MUST take at least 1 second
+            soup=ret_soup(log, self.dbg_lvl, br, nxtpg, wtf=1.2)[0]               # get new soup content and loop again, request MUST take at least 1 second
             time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
         srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors

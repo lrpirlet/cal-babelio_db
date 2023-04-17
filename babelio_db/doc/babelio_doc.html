@@ -4,11 +4,11 @@
 		<li>La compatibilité avec python 2.x me semble obsolète et perturbant. (on peut lire que je ne connais pas python 2.x ;-) )</li>
 		<li>Identify() devrait être invoqué avec NAME_ID puis ISBN et si ça ne marche pas avec titre + auteur, ..., pour terminer avec le titre seul.</li>
 		<li>Un config.py est OK mais je préfère utiliser le config intégré, bien suffisant, et bien plus beau (à mon avis :-)&nbsp;).</li>
-		<li>Babelio donne dans le titre le nom de la série et son n° de tome (ordre dans la série), je veux essayer de l'introduire (et vérifier que toutes mes séries y répondent...)</li>
+		<li>Babelio donne le nom de la série et son n° de tome (ordre dans la série), je veux essayer de l'introduire (et vérifier que toutes mes séries y répondent...)</li>
 		<li>Je préfère nettement les commentaires en HTML et beautifulsoup (utilisé dans calibre par ailleurs): cela permet de garder la &quot;structure&quot;, en particulier les retours à la ligne.</li>
 		<li>J'ai horreur de ce langage de recherche et substitution (expression régulière) auquel je ne comprends pratiquement rien... enfin, rien qu'un tout petit peu quoi!
 &nbsp;	</li></ol><h2>Mode d'emploi</h2>
-	
+
 	<p>Il est a noter que le plein potentiel d'un plugin source ne peut être obtenu que si le plugin est utilisé seul. En effet, utilisé avec d'autres plugin(s), calibre recherche une correspondance sur le titre, les auteurs et les ID... Calibre fait alors une fusion de tous les résultats correspondants pour donner un maximum d'informations pertinentes.</p>
 	<h4>Voici comment je l'utilise</h4>
 	<p>Si, comme je le préfère, vous désirez les renseignements venants de babelio et de babelio seulement, il faut sélectionner babelio seul et conserver plus d'une entrée par source (par plugin). L'utilité se manifeste pour des recherches telles que &quot;henri verne Les dents du tigre 2&quot; qui retourne en premier &quot;Les dents du tigre (2/2)&quot; suivi de&nbsp;&quot;Les dents du tigre (1/2)&quot;, ou encore une recherche sur &quot;Paulo Coelho Guerrier de Lumière&quot; qui retourne quatre ouvrages différents.</p>
@@ -26,7 +26,7 @@
 	<p>J'ai gardé la fonction d'éviter la recherche d'une couverture. En fait, parce que l'image de couverture se trouve parfois sur amazon, et parce que amazon n'est pas vraiment réactif pour les accès non humain, cette fonction se révèle dans certains cas vraiment très utile. On passe de quelque dizaine de secondes d'attente à une poignée de secondes. C'est très appréciable quand on traite une série de titres.</p>
 	<p>J'ai implémenté plusieurs niveaux de verbosité, par défaut le niveau 3 donnera dans le log l'état d'avancement. En particulier, il se pourrait que le plugin ne fournisse pas l'éditeur auquel cas un rapide coup d'œil au journal permet de voir si c'est un bug du plugin ou un manque sur babelio...</p>
 	<p>Enfin, une utilisation de calibre, importante pour moi, est la création de catalogue. Dans ce catalogue, j'aime pouvoir suivre un lien vers le site de babelio. Cela me permet d'obtenir plus de renseignements sur l'auteur, sur sa bibliographie, sur les avis des lecteurs... Je crée donc une référence qui trouve sa place dans les commentaires, et je la sépare du résumé venant du site par un titre.</p>
-	
+
 	<h2>En cas de bug</h2>
 	<p>Le mieux, pour rapporter un problème est de pousser la verbosité au maximum (15), de reproduire le problème et de copier le journal. Une courte description du bug avec le journal aidera fortement à comprendre et à corriger tant le plugin que sa documentation. En effet, rapporter que le titre n'est pas décodé correctement quand plusieurs plugins sont sélectionnés, est probablement le fonctionnement normal de calibre, c'est donc à documenter..</p>
 	<h3></h3></body>
