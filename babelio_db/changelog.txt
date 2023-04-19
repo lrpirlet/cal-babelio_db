@@ -239,3 +239,6 @@ Added  a link in the comments to display the series url... this is also controll
 "autorise un commentaire etendu" in the plugin configuration.
 This MAY change the title of some book as assigned before.
 ---------------------------------------------------------------------
+Added a class decorator to keep a minimum of TIME_INTERVAL seconds between each access to babelio.com.
+Hopefully this will make babelio_db a good "citizen"...
+(yes I got detected by their DoS algorithm while testing the above, and I got banned for one week... )

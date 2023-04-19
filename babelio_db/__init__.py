@@ -27,14 +27,41 @@ from calibre.ebooks.metadata import check_isbn
 from calibre.utils.icu import lower
 from calibre.utils.localization import get_udc
 
-def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
+TIME_INTERVAL = 2       # this is the minimum interval between 2 access to the web (when decorator decorate ret_soup)
+
+class Un_par_un(object):
+    '''
+    This is a class decorator.
+    Purpose: execute the decorated function with a minimum of x seconds
+    between each execution...
+    assume that: the calling module will wait long enough before timeout
+    '''
+    def __init__(self,fnctn):
+        self.function = fnctn
+        self.last_time = 0.0
+        self._memory = []
+
+    def __call__(self, *args, **kwargs):
+        interval_time = self.last_time - time.time() + TIME_INTERVAL # time.time() + TIME_INTERVAL
+        if interval_time > 0:
+            time.sleep(interval_time)
+      # call decorated function
+        result = self.function(*args, **kwargs)
+        self._memory.append((result[1], time.asctime()))
+        self.last_time = time.time()
+        return result
+
+    def get_memory(self):
+        return self._memory
+
+def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who=''):
     '''
     this is an attempt to keep going when the connection to the site fails for no (understandable) reason
     "return (sr, sr.geturl())" with sr.geturl() the true url address of sr (the content).
     '''
     debug=dbg_lvl & 4
     if debug:
-        log.info(who, "In urlopen_with_retry(log, dbg_lvl, br, url, rkt, who)\n")
+        log.info(who, "In urlopen_with_retry(log, dbg_lvl, br, url, rkt, who='')\n")
 
     tries, delay, backoff=4, 3, 2
     while tries > 1:
@@ -59,6 +86,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who):
                     log.info(who, "code : ",e.code,"reason : ",e.reason)
                     raise Exception('(urlopen_with_retry) Failed while acessing url : ',url)
 
+@Un_par_un
 def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
     '''
     Function to return the soup for beautifullsoup to work on. with:
@@ -89,7 +117,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=cpu_count()):
     soup = BS(sr, "html5lib")
     while (time.time() - start) < wtf:                        # avoid DoS detection by forcing a wtf delay
         pass
-  # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # hide_it # très utile parfois, mais que c'est long...
+    # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # hide_it # très utile parfois, mais que c'est long...
     return (soup, url_ret)
 
 def verify_isbn(log, dbg_lvl, isbn_str, who=''):
@@ -118,7 +146,7 @@ def ret_clean_text(log, dbg_lvl, text, who=''):
     '''
     debug=dbg_lvl & 4
     if debug:
-        log.info(who,"\nIn ret_clean_txt(self, log, text)\n")
+        log.info(who,"\nIn ret_clean_txt(self, log, text, who='')\n")
         log.info(who,"text         : ", text)
 
     txt = lower(get_udc().decode(text))
@@ -404,6 +432,10 @@ class Babelio(Source):
                     a_worker_is_alive = True
             if not a_worker_is_alive:
                 break
+
+        if debug:
+            for i in (ret_soup.get_memory()):
+                log.info("Quand : ",i[1]," ; adresse : ", i[0])
 
         return None                 # job done
 
