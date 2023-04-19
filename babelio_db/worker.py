@@ -270,7 +270,7 @@ class Worker(Thread):
 
       # get the title
 
-        bbl_title = (soup.select_one("head>title").string)
+        bbl_title = soup.select_one("head>title").string.replace(" - Babelio","").strip()
         for name in bbl_authors:
             self.log.info(self.who,'name : ', name)
             if name in bbl_title:
@@ -278,6 +278,7 @@ class Worker(Thread):
                 bbl_title = bbl_title.split(" - "+name)[0].strip()  # delete separation, auteur et le reste...
                 bbl_title=bbl_title.replace("Tome","tome")          # remplace toute instance de Tome par tome
                 break
+
         if self.debug:
             self.log.info(self.who,"bbl_title       : ", bbl_title)
 
