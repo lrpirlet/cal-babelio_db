@@ -10,6 +10,9 @@ import time
 from bs4 import BeautifulSoup as BS
 from threading import Thread
 
+from psutil import cpu_count                    # goal is to set a minimum access time of 1 sec * number of thread available: this to avoid a DoS detection
+TIME_INTERVAL = 2
+
 from calibre.ebooks.metadata.book.base import Metadata
 from calibre.ebooks.metadata import check_isbn
 from calibre.ebooks.metadata.sources.base import fixcase, fixauthors
@@ -42,6 +45,7 @@ class Worker(Thread):
         self.debugt=self.dbg_lvl & 8
 
         if self.debug:
+            self.log.info(self.who,"entry time                : ", time.asctime())
             self.log.info(self.who,"self.url                  : ", self.url)
             self.log.info(self.who,"self.relevance            : ", self.relevance)
             self.log.info(self.who,"self.plugin               : ", self.plugin)
@@ -55,6 +59,8 @@ class Worker(Thread):
         this control the rest of the worker process
         '''
         self.log.info("\n"+self.who,"in run(self)")
+
+        time.sleep(self.relevance%cpu_count()* TIME_INTERVAL/cpu_count())
 
         try:
             self.get_details()
@@ -74,7 +80,7 @@ class Worker(Thread):
             self.log.info(self.who,"self.url : ", self.url, "")
 
       # get the babelio page content
-        rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who, wtf=1.2)
+        rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who, wtf=1.0)
         soup = rsp[0]
 
         if self.debugt:
@@ -312,7 +318,7 @@ class Worker(Thread):
 
         bbl_series, bbl_series_seq ="", ""
 
-        es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who, wtf=1.2)
+        es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who, wtf=1.0)
         es_soup = es_rsp[0]
         bbl_series_url = es_rsp[1]
         # self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
@@ -389,7 +395,7 @@ class Worker(Thread):
                 self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=rkt, who=self.who")
                 self.log.info(self.who,"url : ",url)
                 self.log.info(self.who,"rkt : ",rkt)
-            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1.2)[0]
+            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1.0)[0]
 
       # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify()) # hide_it
         return comments_soup
