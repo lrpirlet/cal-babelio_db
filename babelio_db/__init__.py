@@ -30,63 +30,44 @@ from calibre.ebooks.metadata.sources.search_engines import rate_limit
 from calibre.utils.icu import lower
 from calibre.utils.localization import get_udc
 
-
-# Use rate_limit() from calibre.src.calibre.ebooks.metadata.sources.search_engines.py
-
-'''
-@contextmanager decorator.
-
-Typical usage:
-
-    @contextmanager def some_generator(<arguments>):
-        <setup> try:
-            yield <value>
-        finally:
-            <cleanup>
-
-This makes this:
-
-    with some_generator(<arguments>) as <variable>:
-        <body>
-
-equivalent to this:
-
-    <setup> try:
-        <variable> = <value> <body>
-    finally:
-        <cleanup>
-
-see https://towardsdatascience.com/python-context-managers-in-10-minutes-using-the-with-keyword-51eb254c1b89
-
-'''
-
-TIME_INTERVAL = 2       # this is the minimum interval between 2 access to the web (when decorator decorate ret_soup)
+TIME_INTERVAL = 1.2      # this is the minimum interval between 2 access to the web (with decorator on ret_soup())
 
 class Un_par_un(object):
     '''
-    This is a class decorator.
+    This is a class decorator, cause I am too lazy rewrite that plugin... :),
+    beside I want to learn creating one. Well, granted, dedicated to ret_soup()
+
     Purpose: execute the decorated function with a minimum of x seconds
-    between each execution...
-    assume that: the calling module will wait long enough before timeout
+    between each execution, and collect all access time information...
+
+    rate_limit() from calibre.ebooks.metadata.sources.search_engines provides the delay
+    using a locked file containing the access time... maintenance of this resource
+    is hidden in a context manager implementation.
+
+    @contextmanager
+    def rate_limit(name='test', time_between_visits=2, max_wait_seconds=5 * 60, sleep_time=0.2):
+
+    I assume that calibre will wait long enough for babelio plugin (I pushed to 45 sec after first match)
     '''
     def __init__(self,fnctn):
         self.function = fnctn
-        # self.last_time = 0.0
         self._memory = []
 
     def __call__(self, *args, **kwargs):
-        # interval_time = self.last_time - time.time() + TIME_INTERVAL # time.time() + TIME_INTERVAL
-        # if interval_time > 0:
-        #     time.sleep(interval_time)
-        with rate_limit():
+      # who is calling
+        who = "[__init__]"
+        for key,value in kwargs.items():
+            if "who" in key: who = value
+        with rate_limit(name='Babelio_db', time_between_visits=TIME_INTERVAL):
           # call decorated function: "ret_soup" whose result is (soup,url)
             result = self.function(*args, **kwargs)
-            self._memory.append((result[1], time.asctime()))
-            # self.last_time = time.time()
+            self._memory.append((result[1], time.asctime(), who))
             return result
 
     def get_memory(self):
-        return self._memory
+        mmry = self._memory
+        self._memory = []
+        return mmry
 
 def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who=''):
     '''
@@ -121,12 +102,13 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who=''):
                     raise Exception('(urlopen_with_retry) Failed while acessing url : ',url)
 
 @Un_par_un
-def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=1): #cpu_count()):
+def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
     '''
     Function to return the soup for beautifullsoup to work on. with:
     br is browser, url is request address, who is an aid to identify the caller,
-    wtf is a wait time to avoid DoS attack detection, rkt is the arguments for a
-    POST request, if rkt is None, the request is GET... return (soup, url_ret)
+    Un_par_un introduce a wait time to avoid DoS attack detection, rkt is the
+    arguments for a     POST request, if rkt is None, the request is GET...
+    return (soup, url_ret)
     '''
     debug=dbg_lvl & 4
     debugt=dbg_lvl & 8
@@ -138,7 +120,6 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=1): #cpu_count()):
         log.info(who, "br                : ", br)
         log.info(who, "url               : ", url)
         log.info(who, "rkt               : ", rkt)
-        log.info(who, "wtf               : ", wtf)
 
     log.info(who, "Accessing url     : ", url)
     if rkt :
@@ -149,8 +130,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who='', wtf=1): #cpu_count()):
     resp = urlopen_with_retry(log, dbg_lvl, br, url, rkt, who)
     sr, url_ret = resp[0], resp[1]
     soup = BS(sr, "html5lib")
-    while (time.time() - start) < wtf:                        # avoid DoS detection by forcing a wtf delay
-        pass
+
     # if debug: log.info(who,"soup.prettify() :\n",soup.prettify())               # hide_it # très utile parfois, mais que c'est long...
     return (soup, url_ret)
 
@@ -201,7 +181,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (0, 5, 1)
+    version                 = (0, 6, 0)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -362,6 +342,7 @@ class Babelio(Source):
         log.info('\nIn identify(self, log, result_queue, abort, title=.., authors=.., identifiers=.., timeout=30)\n')
 
         debug=self.dbg_lvl & 1
+        debugt=self.dbg_lvl & 8
         if debug:
             log.info("title             : ", title)
             log.info("identifiers       : ", identifiers)
@@ -397,7 +378,7 @@ class Babelio(Source):
                 if isbn:
                     query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
                     log.info("ISBN identifier trouvé, on cherche cet ISBN sur babelio : ", query)
-                    soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.0)[0]
+                    soup=ret_soup(log, self.dbg_lvl, br, query)[0]
                     matches = self.parse_search_results(log, title, authors, soup, br)
                     query=None
 
@@ -412,7 +393,7 @@ class Babelio(Source):
         if not (matches or query) and authors:
             log.info("Pas de résultat avec babelio_id ou avec l'ISBN, on recherche les auteurs et le titre.\n")
             query = self.create_query(log, title=title, authors=authors, only_first_author=False)
-            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.0)[0]
+            soup=ret_soup(log, self.dbg_lvl, br, query)[0]
             matches = self.parse_search_results(log, title, authors, soup, br)
             query=None
 
@@ -422,7 +403,7 @@ class Babelio(Source):
             for n in range(len(authors)):
                 log.info('Auteur utilisé : ', authors[n],'\n')
                 query = self.create_query(log, title=title, authors=[authors[n]])
-                soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.0)[0]
+                soup=ret_soup(log, self.dbg_lvl, br, query)[0]
                 matches = self.parse_search_results(log, title, authors, soup, br)
                 query=None
                 if matches: break
@@ -431,7 +412,7 @@ class Babelio(Source):
         if not (matches or query):
             log.info('Pas de résultat, on utilise uniquement le titre (on peut avoir de la chance! ).\n')
             query = self.create_query(log, title=title)
-            soup=ret_soup(log, self.dbg_lvl, br, query, wtf=1.0)[0]
+            soup=ret_soup(log, self.dbg_lvl, br, query)[0]
             matches = self.parse_search_results(log, title, authors, soup, br)
             if not matches:
                 log.error('Pas de résultat pour la requête : ', query)
@@ -467,9 +448,10 @@ class Babelio(Source):
             if not a_worker_is_alive:
                 break
 
-        if debug:
+        if debugt:
+            log.info("\ntiming of the accesses to Babelio for this book")
             for i in (ret_soup.get_memory()):
-                log.info("Quand : ",i[1]," ; adresse : ", i[0])
+                log.info("When : {}; Who : {}; Where : {}".format(i[1],i[2],i[0]))
 
         return None                 # job done
 
@@ -518,7 +500,7 @@ class Babelio(Source):
             count = count + 1                                                   #
             nxtpg = Babelio.BASE_URL + soup.select_one('.icon-next')["href"]    # get next page adress
             if debug: log.info("next page : ",nxtpg)                            #
-            soup=ret_soup(log, self.dbg_lvl, br, nxtpg, wtf=1.0)[0]               # get new soup content and loop again, request MUST take at least 1 second
+            soup=ret_soup(log, self.dbg_lvl, br, nxtpg)[0]               # get new soup content and loop again, request MUST take at least 1 second
             time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
         srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors

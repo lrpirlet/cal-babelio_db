@@ -80,7 +80,7 @@ class Worker(Thread):
             self.log.info(self.who,"self.url : ", self.url, "")
 
       # get the babelio page content
-        rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who, wtf=1.0)
+        rsp = ret_soup(self.log, self.dbg_lvl, self.br, self.url, who=self.who)
         soup = rsp[0]
 
         if self.debugt:
@@ -318,7 +318,7 @@ class Worker(Thread):
 
         bbl_series, bbl_series_seq ="", ""
 
-        es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who, wtf=1.0)
+        es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who)
         es_soup = es_rsp[0]
         bbl_series_url = es_rsp[1]
         # self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
@@ -395,7 +395,7 @@ class Worker(Thread):
                 self.log.info(self.who,"calling ret_soup(log, dbg_lvl, br, url, rkt=rkt, who=self.who")
                 self.log.info(self.who,"url : ",url)
                 self.log.info(self.who,"rkt : ",rkt)
-            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who, wtf=1.0)[0]
+            comments_soup = ret_soup(self.log, self.dbg_lvl, self.br, url, rkt=rkt, who=self.who)[0]
 
       # if self.debug: self.log.info(self.who,"comments prettyfied:\n", comments_soup.prettify()) # hide_it
         return comments_soup

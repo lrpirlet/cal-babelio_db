@@ -240,5 +240,17 @@ Added  a link in the comments to display the series url... this is also controll
 This MAY change the title of some book as assigned before.
 ---------------------------------------------------------------------
 Added a class decorator to keep a minimum of TIME_INTERVAL seconds between each access to babelio.com.
-Hopefully this will make babelio_db a good "citizen"...
-(yes I got detected by their DoS algorithm while testing the above, and I got banned for one week... )
+rate_limit() from calibre.ebooks.metadata.sources.search_engines provides the delay
+using a locked file containing the access time... maintenance of this resource
+is hidden in a context manager implementation.
+  @contextmanager
+  def rate_limit(name='test', time_between_visits=2, max_wait_seconds=5 * 60, sleep_time=0.2):
+this Un_par_un(objet) class also records when, by who and what url is accessed for each book.
+
+result.log shows the log of the matadata download for author='henri vernes' and title 'jaune'...
+this would have been a sure ban before rate_limit... note that I pushed the the timeout to 45 seconds
+after first match is found in the configure metadata download..
+(pour la petite histoire, Bob Morane a affronté l'ombre jaune en de multiples aventures :) )
+---------------------------------------------------------------------
+La version est maintenant 0.6.0... cette version fonctionne sous calibre 6.3.0 et +
+---------------------------------------------------------------------
