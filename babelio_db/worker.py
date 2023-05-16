@@ -276,17 +276,12 @@ class Worker(Thread):
 
       # get the title
 
-        bbl_title = soup.select_one("head>title").string.replace(" - Babelio","").strip()
+        bbl_title = soup.select_one("head>title").string.replace(" - Babelio","").strip()   # returns  titre - auteur - Babelio
+        self.log.info(self.who,'bbl_title : ', bbl_title)                                   # exemple: <title>Hope one, tome 2 -  Fane - Babelio</title>
         for name in bbl_authors:
             self.log.info(self.who,'name : ', name)
             if name in bbl_title:
-                self.log.info(self.who,'bbl_title', bbl_title)
-                bbl_title = bbl_title.split(" - "+name)[0].strip()  # delete separation, auteur et le reste...
-                bbl_title=bbl_title.replace("Tome","tome")          # remplace toute instance de Tome par tome
-                break
-
-        if self.debug:
-            self.log.info(self.who,"bbl_title       : ", bbl_title)
+                bbl_title = bbl_title.split(name)[0].strip(" -")                            # écarte separation, auteur et le reste...
 
       # get the series
         if soup.select_one('a[href^="/serie/"]'):
@@ -294,7 +289,6 @@ class Worker(Thread):
           # find true url for the series
             es_url = "https://www.babelio.com" + soup.select_one('a[href^="/serie/"]').get('href')
             if self.debug:
-                self.log.info(self.who,"bbl_title       : ", bbl_title)
                 self.log.info(self.who,'url de la serie :', es_url)
 
           # get series infos from the series page
@@ -304,8 +298,12 @@ class Worker(Thread):
                 self.log.exception('Erreur en cherchant la serie dans : %r' % es_url)
 
           # ne garde que l'essence du titre
-            if "tome" and ":" in bbl_title:
-                bbl_title = bbl_title.split(":")[-1].strip()
+        bbl_title=bbl_title.replace("Tome","tome")          # remplace toute instance de Tome par tome
+        if "tome" and ":" in bbl_title:
+            bbl_title = bbl_title.split(":")[-1].strip()
+
+        if self.debug:
+            self.log.info(self.who,"bbl_title       : ", bbl_title)
 
         return (bbl_title, bbl_series, bbl_series_seq, bbl_series_url)
 
@@ -314,20 +312,20 @@ class Worker(Thread):
         a serie url exists then this get the page,
         extract the serie name and the url according to babelio
         '''
-        self.log.info("\n"+self.who,"parse_extended_serie(self, es_url)")
+        self.log.info("\n"+self.who,"parse_extended_serie(self, es_url, bbl_title : {})".format(bbl_title))
 
         bbl_series, bbl_series_seq ="", ""
 
         es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who)
         es_soup = es_rsp[0]
         bbl_series_url = es_rsp[1]
-        # self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
+#         self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
 
-        bbl_series = (es_soup.select_one("head>title").string).split('-')[0].strip()
+        bbl_series = (es_soup.select_one("head>title").string).split("érie")[0].rstrip(" -Ss").strip()
 
         for i in es_soup.select(".cr_droite"):
+#             self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
             if bbl_title in i.get_text():
-                # self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
                 bbl_series_seq = i.get_text().split('tome :')[-1].strip()
                 if bbl_series_seq.isnumeric():
                     bbl_series_seq = float(bbl_series_seq)

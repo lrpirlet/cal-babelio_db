@@ -254,3 +254,6 @@ after first match is found in the configure metadata download..
 ---------------------------------------------------------------------
 La version est maintenant 0.6.0... cette version fonctionne sous calibre 6.3.0 et +
 ---------------------------------------------------------------------
+
+Correct a problem with name of the series when it contains a "-" character... reshuffle some instructions
+to get a better title for selection of the series index
