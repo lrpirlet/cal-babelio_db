@@ -324,7 +324,7 @@ class Worker(Thread):
         bbl_series = (es_soup.select_one("head>title").string).split("érie")[0].rstrip(" -Ss").strip()
 
         for i in es_soup.select(".cr_droite"):
-            self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
+#             self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
             if bbl_title in i.get_text():
                 bbl_series_seq = i.get_text().split('tome :')[-1].strip()
                 if bbl_series_seq.isnumeric():
