@@ -254,6 +254,13 @@ after first match is found in the configure metadata download..
 ---------------------------------------------------------------------
 La version est maintenant 0.6.0... cette version fonctionne sous calibre 6.3.0 et +
 ---------------------------------------------------------------------
-
 Correct a problem with name of the series when it contains a "-" character... reshuffle some instructions
 to get a better title for selection of the series index
+---------------------------------------------------------------------
+add a break in a loop to make sure that the first match is taken (make sure that bbl_series_seq is
+populated with 1 and not by 17 would the serie contain 17 items)
+---------------------------------------------------------------------
+add the possibility to display the popularity of the book. If enabled, the pluugin will
+display a title "Popularité" under what the number of rating and the rating mean will be shown
+version number is now 0.7.0
+---------------------------------------------------------------------

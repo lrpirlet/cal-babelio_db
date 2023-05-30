@@ -181,7 +181,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (0, 6, 1)
+    version                 = (0, 7, 0)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -240,7 +240,14 @@ class Babelio(Source):
                 'bool',
                 False,
                 _('Autorise un commentaire étendu'),
-                _('Cochez cette case pour autoriser la référence et le titre "Résumé" dans les commentaires')
+                _('Cochez cette case pour autoriser la référence, le titre "Résumé" et le titre "Popularité" dans les commentaires')
+        ),
+        Option(
+                'Detailled_Rating_wanted',
+                'bool',
+                False,
+                _('Autorise un rapport plus detaillé de la notation, si le commentaire étendu est sélectionné.'),
+                _('Cochez cette case pour autoriser le titre "Popularité" dans les commentaires')
         )
     )
 
@@ -268,6 +275,14 @@ class Babelio(Source):
             return x
         wpcomment = self.prefs.get('Pretty_wanted', False)
         return wpcomment
+
+    @property
+    def with_detailed_rating(self):
+        x = getattr(self, 'wrcomment', None)
+        if x is not None:
+            return x
+        wrcomment = self.prefs.get('Detailled_Rating_wanted', False)
+        return wrcomment
 
     def get_book_url(self, identifiers):
         '''
@@ -339,6 +354,7 @@ class Babelio(Source):
         log.info('self.dgb_lvl              : ', self.dbg_lvl)
         log.info('self.with_cover           : ', self.with_cover)
         log.info('self.with_pretty_comments : ', self.with_pretty_comments)
+        log.info('self.with_detailed_rating : ', self.with_detailed_rating)
         log.info('\nIn identify(self, log, result_queue, abort, title=.., authors=.., identifiers=.., timeout=30)\n')
 
         debug=self.dbg_lvl & 1

@@ -39,6 +39,7 @@ class Worker(Thread):
 
         self.with_cover = self.plugin.with_cover
         self.with_pretty_comments = self.plugin.with_pretty_comments
+        self.with_detailed_rating = self.plugin.with_detailed_rating
         self.bbl_id = None
         self.who = "[worker "+str(relevance)+"]"
         self.debug=self.dbg_lvl & 2
@@ -53,6 +54,7 @@ class Worker(Thread):
             self.log.info(self.who,"self.timeout              : ", self.timeout)
             self.log.info(self.who,"self.with_cover           : ", self.with_cover)
             self.log.info(self.who,"self.with_pretty_comments : ", self.with_pretty_comments)
+            self.log.info(self.who,"self.with_detailed_rating : ", self.with_detailed_rating)
 
     def run(self):
         '''
@@ -148,7 +150,7 @@ class Worker(Thread):
 
       # find the rating.. OK
         try:
-            bbl_rating = self.parse_rating(soup)
+            bbl_rating, bbl_rating_cnt = self.parse_rating(soup)
         except:
             self.log.exception('Erreur en cherchant la note dans : %r' % self.url)
             bbl_rating = None
@@ -211,6 +213,12 @@ class Worker(Thread):
             if bbl_series_url:
                 bbl_serie_ref = BS('<div><p>Réf. de la série: <a href="' + bbl_series_url + '">' + bbl_series_url + '</a></p></div>',"lxml")
                 bbl_comments.append(bbl_serie_ref)  # si part d'une série, ajoute la référence à la série.
+          # cree la note détaillée
+            if bbl_rating and bbl_rating_cnt and self.with_detailed_rating:
+                bbl_titre = BS('<div><hr><p style="font-weight: bold; font-size: 18px"> Popularité </p><hr></div>',"lxml")
+                bbl_ext_rating = BS('<div><p>Le nombre de cotations est <strong>' + str(bbl_rating_cnt) + '</strong>, avec une note moyenne de <strong>' + str(bbl_rating) + '</strong> sur 5</p></div>',"lxml")
+                bbl_comments.append(bbl_titre)      # ensuite le titre
+                bbl_comments.append(bbl_ext_rating)
           # cree un titre si du commentaire existe
             if comments:
                 bbl_titre = BS('<div><hr><p style="font-weight: bold; font-size: 18px"> Résumé </p><hr></div>',"lxml")
@@ -363,18 +371,21 @@ class Worker(Thread):
 
     def parse_rating(self, soup):
         '''
-        get rating from the url located in the html part
+        get rating and number of votes from the url located in the html part
         '''
         self.log.info("\n"+self.who,"in parse_rating(self, soup)")
 
       # if soup.select_one('span[itemprop="aggregateRating"]') fails, an exception will be raised
-        rating_soup=soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
+        rating_soup = soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
         # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify()) # hide_it
         bbl_rating = float(rating_soup.text.strip())
+        rating_cnt_soup = soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingCount"]')
+        # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify()) # hide_it
+        bbl_rating_cnt = int(rating_cnt_soup.text.strip())
 
         if self.debug:
-            self.log.info(self.who,'parse_rating() returns bbl_rating : ', bbl_rating)
-        return bbl_rating
+            self.log.info(self.who,"parse_rating() returns bbl_rating : {}, bbl_rating_cnt : {}".format(bbl_rating, bbl_rating_cnt))
+        return bbl_rating, bbl_rating_cnt
 
     def parse_comments(self, soup):
         '''
