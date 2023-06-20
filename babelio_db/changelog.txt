@@ -264,3 +264,6 @@ add the possibility to display the popularity of the book. If enabled, the pluug
 display a title "Popularité" under what the number of rating and the rating mean will be shown
 version number is now 0.7.0
 ---------------------------------------------------------------------
+correct a bug when serie is terminated by the character 's'
+push it to version 0.8.0
+---------------------------------------------------------------------

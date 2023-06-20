@@ -327,9 +327,13 @@ class Worker(Thread):
         es_rsp = ret_soup(self.log, self.dbg_lvl, self.br, es_url, who=self.who)
         es_soup = es_rsp[0]
         bbl_series_url = es_rsp[1]
-#         self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
+        # self.log.info(self.who,"es_soup prettyfied :\n", es_soup.prettify()) # hide_it # may be long
 
-        bbl_series = (es_soup.select_one("head>title").string).split("érie")[0].rstrip(" -Ss").strip()
+      # need a two stages extraction cause we can find either série or Série or something (I hope not...)
+      # hope fully LRPCutHerePlease is unique enough... I know, LRP is me and I am unique...
+        for i in ("série", "Série"):
+            bbl_series = (es_soup.select_one("head>title").string).replace(i,"LRPCutHerePlease")
+        bbl_series = bbl_series.split("LRPCutHerePlease")[0].rstrip(" -").strip()
 
         for i in es_soup.select(".cr_droite"):
 #             self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
