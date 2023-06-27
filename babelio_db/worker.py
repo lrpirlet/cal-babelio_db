@@ -10,12 +10,9 @@ import time
 from bs4 import BeautifulSoup as BS
 from threading import Thread
 
-from psutil import cpu_count                    # goal is to set a minimum access time of 1 sec * number of thread available: this to avoid a DoS detection
-TIME_INTERVAL = 2
-
 from calibre.ebooks.metadata.book.base import Metadata
 from calibre.ebooks.metadata import check_isbn
-from calibre.ebooks.metadata.sources.base import fixcase, fixauthors
+from calibre.ebooks.metadata.sources.base import fixcase
 from calibre_plugins.babelio_db import ret_soup, Babelio
 
 class Worker(Thread):
@@ -61,8 +58,6 @@ class Worker(Thread):
         this control the rest of the worker process
         '''
         self.log.info("\n"+self.who,"in run(self)")
-
-        time.sleep(self.relevance%cpu_count()* TIME_INTERVAL/cpu_count())
 
         try:
             self.get_details()
@@ -307,7 +302,7 @@ class Worker(Thread):
 
           # ne garde que l'essence du titre
         bbl_title=bbl_title.replace("Tome","tome")          # remplace toute instance de Tome par tome
-        if "tome" and ":" in bbl_title:
+        if "tome" in bbl_title and ":" in bbl_title:
             bbl_title = bbl_title.split(":")[-1].strip()
 
         if self.debug:
@@ -338,7 +333,9 @@ class Worker(Thread):
         for i in es_soup.select(".cr_droite"):
 #             self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
             if bbl_title in i.get_text():
-                bbl_series_seq = i.get_text().split('tome :')[-1].strip()
+                bbl_series_seq = i.get_text()
+                bbl_series_seq = bbl_series_seq.replace('Tome :','tome :')
+                bbl_series_seq = bbl_series_seq.split('tome :')[-1].strip()
                 if bbl_series_seq.isnumeric():
                     bbl_series_seq = float(bbl_series_seq)
                 break

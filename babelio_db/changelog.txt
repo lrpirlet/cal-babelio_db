@@ -267,3 +267,6 @@ version number is now 0.7.0
 correct a bug when serie is terminated by the character 's'
 push it to version 0.8.0
 ---------------------------------------------------------------------
+correct a possible bug if title contains ':'
+correct a bug if serie contains 'Tome :' rather than 'tome :'
+---------------------------------------------------------------------
