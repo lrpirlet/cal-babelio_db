@@ -198,8 +198,8 @@ class Worker(Thread):
 
       # keep actual behavior
         if not self.with_pretty_comments:
-            self.log.info(self.who,"with_pretty_comments : ", self.with_pretty_comments)
-            bbl_comments = comments          # cree la référence (pour retrouver l'url babelio a partir du catalogue)
+            bbl_comments =  BS('',"lxml")         # cree une page totalement vide pui
+            bbl_comments.append(comments)         # append comments... this will correctly 'allign' the tags
         else:
             bbl_reference = BS('<div><p>Référence: <a href="' + self.url + '">' + self.url + '</a></p></div>',"lxml")
           # on commence par la référence qui sera toujours presente dans le commentaire si with_pretty_comments est True

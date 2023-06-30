@@ -270,3 +270,6 @@ push it to version 0.8.0
 correct a possible bug if title contains ':'
 correct a bug if serie contains 'Tome :' rather than 'tome :'
 ---------------------------------------------------------------------
+correct a crash when the comments from Babelio are NOT crectly 'alligned':
+I create an empty html file then append the extracted segment BeautifulSoup will then correct it
+---------------------------------------------------------------------
