@@ -24,7 +24,7 @@ class Worker(Thread):
 
     def __init__(self, url, result_queue, browser, log, relevance, plugin, dbg_lvl, timeout=20):
         Thread.__init__(self)
-        self.daemon = True
+        # ?? self.daemon = True
         self.url = url
         self.result_queue = result_queue
         self.log = log

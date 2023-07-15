@@ -273,3 +273,7 @@ correct a bug if serie contains 'Tome :' rather than 'tome :'
 correct a crash when the comments from Babelio are NOT crectly 'alligned':
 I create an empty html file then append the extracted segment BeautifulSoup will then correct it
 ---------------------------------------------------------------------
+correct a condition check that prevented optimization when babelio_id was present...
+detected when babelio_id was valid and title was "None" (that is "unknown")
+version is 0.8.3
+---------------------------------------------------------------------

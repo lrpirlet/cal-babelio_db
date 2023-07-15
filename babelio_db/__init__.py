@@ -20,9 +20,6 @@ result = SM(None, s1, s2).ratio()
 result is 0.9112903225806451... anything above .6 may be considered similar
 '''
 
-# from psutil import cpu_count                    # goal is to set a minimum access time of 1 sec * number of thread available: this to avoid a DoS detection
-
-
 # the following makes some calibre code available to my code
 from calibre.ebooks.metadata.sources.base import (Source, Option)
 from calibre.ebooks.metadata import check_isbn
@@ -181,7 +178,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (0, 8, 2)
+    version                 = (0, 8, 3)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -379,10 +376,9 @@ class Babelio(Source):
         if identifiers:
           # En premier, on essaye de charger la page si un id babelio existe
             tmp_matches = self.get_book_url(identifiers)
-            if not tmp_matches:
-                old_id = identifiers.get('babelio', None)
-                if old_id and "/" in old_id and old_id.split("/")[-1].isnumeric():
-                    tmp_matches = (self.ID_NAME, old_id, "https://www.babelio.com/livres/" + old_id)
+            old_id = identifiers.get('babelio', None)
+            if old_id and "/" in old_id and old_id.split("/")[-1].isnumeric():
+                tmp_matches = (self.ID_NAME, old_id, "https://www.babelio.com/livres/" + old_id)
             if tmp_matches:
                 matches = [tmp_matches[2]]
                 log.info("babelio identifier trouvé... pas de recherche sur babelio... on saute directement au livre\n")
@@ -400,7 +396,7 @@ class Babelio(Source):
 
       # Enfin sauf identifiers, on essaye auteur+titre ou même titre
       # mais titre doit exister (create_query return None if no title...)
-        if not title:
+        if not (title or matches):
             log.error('Métadonnées incorrectes ou insuffisantes pour la requête.')
             log.error("Verifier la validité des ids soumis (ISBN, babelio), ")
             log.error("la présence d'un titre et la bonne orthographe des auteurs.")
