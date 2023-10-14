@@ -73,7 +73,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who=''):
     '''
     debug=dbg_lvl & 4
     if debug:
-        log.info(who, "In urlopen_with_retry(log, dbg_lvl, br, url, rkt, who='')\n")
+        log.info(who, "In urlopen_with_retry(log, dbg_lvl, br, url, rkt={}, who={})\n".format(rkt,who))
 
     tries, delay, backoff=4, 3, 2
     while tries > 1:
@@ -110,7 +110,7 @@ def ret_soup(log, dbg_lvl, br, url, rkt=None, who=''):
     debug=dbg_lvl & 4
     debugt=dbg_lvl & 8
     if debug or debugt:
-        log.info(who, "In ret_soup(log, dbg_lvl, br, url, rkt=none, who=''\n")
+        log.info(who, "In ret_soup(log, dbg_lvl, br, url, rkt={}, who={})\n".format(rkt, who))
         log.info(who, "URL request time : ", datetime.datetime.now().strftime("%H:%M:%S"))
     start = time.time()
     if debug:
@@ -259,7 +259,6 @@ class Babelio(Source):
     @property
     def with_cover(self):
         x = getattr(self, 'wcover', None)
-        print("dans with_cover(self)")
         if x is not None:
             return x
         wcover = self.prefs.get('Cover_wanted', False)
@@ -311,8 +310,14 @@ class Babelio(Source):
             return None
 
     def create_query(self, log, title=None, authors=None, only_first_author=True):
+        # '''
+        # This returns an URL build with all the tokens made from both the title and the authors.
+        # If title is None, returns None.
+        # ! type(title) is str, type(authors) is list
+        # '''
         '''
-        This returns an URL build with all the tokens made from both the title and the authors.
+        This returns both an URL and a data request for a POST request to babelio.com
+        This is a change from previous babelio_db that used to need a GET request
         If title is None, returns None.
         ! type(title) is str, type(authors) is list
         '''
@@ -322,24 +327,33 @@ class Babelio(Source):
             log.info('title       : ', title)
             log.info('authors     : ', authors)
 
-        BASE_URL_FIRST = 'http://www.babelio.com/resrecherche.php?Recherche='
-        BASE_URL_LAST = "&amp;tri=auteur&amp;item_recherche=livres&amp;pageN=1"
+        # BASE_URL_FIRST = 'http://www.babelio.com/resrecherche.php?Recherche='
+        # BASE_URL_LAST = "&amp;tri=auteur&amp;item_recherche=livres&amp;pageN=1"
         ti = ''
         au = ''
+        url = "https://www.babelio.com/recherche"
+        rkt = None
 
         if authors:
             for i in range(len(authors)):
                 authors[i] = ret_clean_text(log, self.dbg_lvl, authors[i])
             author_tokens = self.get_author_tokens(authors, only_first_author=only_first_author)
-            au='+'.join(author_tokens)
+        #     au='+'.join(author_tokens)
+            au=' '.join(author_tokens)
 
         title = ret_clean_text(log, self.dbg_lvl, title)
         title_tokens = list(self.get_title_tokens(title, strip_joiners=False, strip_subtitle=True))
-        ti='+'.join(title_tokens)
+        # ti='+'.join(title_tokens)
+        ti=' '.join(title_tokens)
 
-        query = BASE_URL_FIRST+('+'.join((au,ti)).strip('+'))+BASE_URL_LAST
-        if debug: log.info("return query from create_query : ", query)
-        return query
+        # query = BASE_URL_FIRST+('+'.join((au,ti)).strip('+'))+BASE_URL_LAST
+        # if debug: log.info("return query from create_query : ", query)
+        # return query
+        rkt = {"Recherche":(' '.join((au,ti))).strip()}
+        if debug:
+            log.info("return url from create_query : ", url)
+            log.info("return rkt from create_query : ", rkt)
+        return url, rkt
 
     def identify(self, log, result_queue, abort, title=None, authors=None, identifiers={}, timeout=30):
         '''
@@ -368,7 +382,7 @@ class Babelio(Source):
                 if debug: log.info("authors Unknown processed : ", authors)
                 break
 
-        query = None
+        query, rkt = None, None
         matches = []
         br = self.browser
 
@@ -384,13 +398,16 @@ class Babelio(Source):
                 log.info("babelio identifier trouvé... pas de recherche sur babelio... on saute directement au livre\n")
 
           # ensuite, on essaye de charger la page si un ISBN existe
+          # attention babelio changed from get to post: Body: Key : "Recherche" Value : "ken follett un monde sans fin"
+          # attention url "https://www.babelio.com/recherche"
           # def verify_isbn(log, dbg_lvl, isbn_str, who=''):
             if not matches:
                 isbn = check_isbn(identifiers.get('isbn', None))
                 if isbn:
-                    query= "https://www.babelio.com/resrecherche.php?Recherche=%s&item_recherche=isbn"%isbn
+                    query= "https://www.babelio.com/recherche"
+                    rkt = {"Recherche":isbn}
                     log.info("ISBN identifier trouvé, on cherche cet ISBN sur babelio : ", query)
-                    soup=ret_soup(log, self.dbg_lvl, br, query)[0]
+                    soup=ret_soup(log, self.dbg_lvl, br, query, rkt=rkt)[0]
                     matches = self.parse_search_results(log, title, authors, soup, br)
                     query=None
 
@@ -404,8 +421,8 @@ class Babelio(Source):
 
         if not (matches or query) and authors:
             log.info("Pas de résultat avec babelio_id ou avec l'ISBN, on recherche les auteurs et le titre.\n")
-            query = self.create_query(log, title=title, authors=authors, only_first_author=False)
-            soup=ret_soup(log, self.dbg_lvl, br, query)[0]
+            query, rkt = self.create_query(log, title=title, authors=authors, only_first_author=False)
+            soup=ret_soup(log, self.dbg_lvl, br, query, rkt=rkt)[0]
             matches = self.parse_search_results(log, title, authors, soup, br)
             query=None
 
@@ -414,8 +431,8 @@ class Babelio(Source):
             log.info("Pas de résultat avec tous les auteurs, on n'en n'utilise qu'un.", end=" ")
             for n in range(len(authors)):
                 log.info('Auteur utilisé : ', authors[n],'\n')
-                query = self.create_query(log, title=title, authors=[authors[n]])
-                soup=ret_soup(log, self.dbg_lvl, br, query)[0]
+                query, rkt = self.create_query(log, title=title, authors=[authors[n]])
+                soup=ret_soup(log, self.dbg_lvl, br, query, rkt=rkt)[0]
                 matches = self.parse_search_results(log, title, authors, soup, br)
                 query=None
                 if matches: break
@@ -423,8 +440,8 @@ class Babelio(Source):
       # ok seul le titre peut encore apporter un résultat...
         if not (matches or query):
             log.info('Pas de résultat, on utilise uniquement le titre (on peut avoir de la chance! ).\n')
-            query = self.create_query(log, title=title)
-            soup=ret_soup(log, self.dbg_lvl, br, query)[0]
+            query, rkt = self.create_query(log, title=title)
+            soup=ret_soup(log, self.dbg_lvl, br, query, rkt=rkt)[0]
             matches = self.parse_search_results(log, title, authors, soup, br)
             if not matches:
                 log.error('Pas de résultat pour la requête : ', query)
@@ -472,8 +489,7 @@ class Babelio(Source):
         this method returns "matches".
         note: if several matches, the first presented in babelio will be the first in the
         matches list; it will be submited as the first worker... (highest priority)
-        !! CAUTION !! if the number of book discovered is greater than 12, only the 12 most
-        significant will be returned
+        Note: only the first Babelio page will be taken into account (10 books maximum)
         '''
         log.info('In parse_search_results(self, log, orig_title, orig_authors, soup, br)')
         debug=self.dbg_lvl & 1
@@ -482,38 +498,67 @@ class Babelio(Source):
             log.info("orig_authors  : ", orig_authors)
 
         unsrt_match, matches = [], []
-        count=0
-        while count < 5 :                                                       # loop over 6 first pages of search result (max 6 request @ 1.6 sec)
-            try:
-                x=soup.select_one('div.mes_livres').select_one('tbody').select('tr')
-            except:
-                break
-            if len(x):                                                          # loop over all html addresses tied with titre_v2 (all book ref)
-                for i in range(len(x)):                                         # !!CAUTION!! each page may have up to 10 books
-                    y = x[i].select_one('td.titre_livre > a.titre_v2')
-                    sous_url = y["href"].strip()
-                    titre = y.text.strip()
-                    ttl=ret_clean_text(log, self.dbg_lvl, titre)
-                    orig_ttl=ret_clean_text(log, self.dbg_lvl, orig_title)
-                    y = x[i].select_one('td.auteur > a.auteur_v2')
-                    auteur=y.text.strip()
-                    aut=ret_clean_text(log, self.dbg_lvl, auteur)
-                    maxi=0
-                    if orig_authors:
-                        for i in range(len(orig_authors)):
-                            orig_authors[i] = ret_clean_text(log, self.dbg_lvl, orig_authors[i])
-                            maxi = max(maxi, (SM(None,aut,orig_authors[i]).ratio()))        # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
-                    else:
-                        orig_authors=[]
-                    unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi)))    # compute ratio comparing titre presented by babelio to requested title
-                    # unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi),titre,orig_title,auteur,orig_authors))   # may be long
-            if not soup.select_one('.icon-next'):                               #
-                break                                                           # exit loop if no more next page
-            count = count + 1                                                   #
-            nxtpg = Babelio.BASE_URL + soup.select_one('.icon-next')["href"]    # get next page adress
-            if debug: log.info("next page : ",nxtpg)                            #
-            soup=ret_soup(log, self.dbg_lvl, br, nxtpg)[0]               # get new soup content and loop again, request MUST take at least 1 second
-            time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
+        # only use the first page found by babelio.com, that is a maximum of 10 books
+
+        x = soup.select(".cr_meta")
+        if len(x):
+            for i in range(len(x)):
+                if debug: log.info('display each item found\n',x[i].prettify())             # hide it
+
+                titre = (x[i].select_one(".titre1")).text.strip()
+                ttl = ret_clean_text(log, self.dbg_lvl, titre)
+
+                orig_ttl = ret_clean_text(log, self.dbg_lvl, orig_title)
+
+                sous_url = (x[i].select_one(".titre1"))["href"].strip()
+
+                auteur = (x[i].select_one(".libelle")).text.strip()
+                aut = ret_clean_text(log, self.dbg_lvl, auteur)
+                max_Ratio = 0
+                if orig_authors:
+                    for i in range(len(orig_authors)):
+                        orig_authors[i] = ret_clean_text(log, self.dbg_lvl, orig_authors[i])
+                        max_Ratio = max(max_Ratio, (SM(None,aut,orig_authors[i]).ratio()))        # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
+                else:
+                    orig_authors=[]
+
+                unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+max_Ratio)))         # compute ratio comparing titre presented by babelio to requested title
+
+                if debug:
+                    log.info('titre : {},    auteur : {},  sous_url : {}'.format(titre, auteur, sous_url))
+
+        # count=0
+        # while count < 5 :                                                       # loop over 6 first pages of search result (max 6 request @ 1.6 sec)
+        #     try:
+        #         x=soup.select_one('div.mes_livres').select_one('tbody').select('tr')
+        #     except:
+        #         break
+        #     if len(x):                                                          # loop over all html addresses tied with titre_v2 (all book ref)
+        #         for i in range(len(x)):                                         # !!CAUTION!! each page may have up to 10 books
+        #             y = x[i].select_one('td.titre_livre > a.titre_v2')
+        #             sous_url = y["href"].strip()
+        #             titre = y.text.strip()
+        #             ttl=ret_clean_text(log, self.dbg_lvl, titre)
+        #             orig_ttl=ret_clean_text(log, self.dbg_lvl, orig_title)
+        #             y = x[i].select_one('td.auteur > a.auteur_v2')
+        #             auteur=y.text.strip()
+        #             aut=ret_clean_text(log, self.dbg_lvl, auteur)
+        #             maxi=0
+        #             if orig_authors:
+        #                 for i in range(len(orig_authors)):
+        #                     orig_authors[i] = ret_clean_text(log, self.dbg_lvl, orig_authors[i])
+        #                     maxi = max(maxi, (SM(None,aut,orig_authors[i]).ratio()))        # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
+        #             else:
+        #                 orig_authors=[]
+        #             unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi)))    # compute ratio comparing titre presented by babelio to requested title
+        #             # unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi),titre,orig_title,auteur,orig_authors))   # may be long
+        #     if not soup.select_one('.icon-next'):                               #
+        #         break                                                           # exit loop if no more next page
+        #     count = count + 1                                                   #
+        #     nxtpg = Babelio.BASE_URL + soup.select_one('.icon-next')["href"]    # get next page adress
+        #     if debug: log.info("next page : ",nxtpg)                            #
+        #     soup=ret_soup(log, self.dbg_lvl, br, nxtpg)[0]               # get new soup content and loop again, request MUST take at least 1 second
+        #     time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
 
         srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors
 
@@ -521,13 +566,13 @@ class Babelio(Source):
         # if debug:                                                                          # hide_it # may be long
         #     for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])      # hide_it # may be long
 
-        srt_match = srt_match[:12]                                              # limit to 12 requests (max 12 requests @ #workers sec)
+        # srt_match = srt_match[:12]                                              # limit to 12 requests (max 12 requests @ #workers sec)
         for i in range(len(srt_match)):
             matches.append(Babelio.BASE_URL + srt_match[i][0])
 
         if not matches:
             if debug:
-                log.info("matches at return time : ", matches)
+                log.info("matches at return time : ", len(matches))
             return None
         else:
             log.info("nombre de matches : ", len(matches))
