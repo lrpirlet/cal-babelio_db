@@ -277,3 +277,10 @@ correct a condition check that prevented optimization when babelio_id was presen
 detected when babelio_id was valid and title was "None" (that is "unknown")
 version is 0.8.3
 ---------------------------------------------------------------------
+Babelio.com changed the way to access the search page. It used to work with a GET command,
+It now works with a POST command.
+I decided to avoid loading more than one page of search to try and avoid banning (this means 10
+books instead of 12 and rely on Babelio sorting the most significant book)
+----------------------------------------------------------------------
+Test version 0.8.4, needs cleaning
+---------------------------------------------------------------------
