@@ -283,4 +283,14 @@ I decided to avoid loading more than one page of search to try and avoid banning
 books instead of 12 and rely on Babelio sorting the most significant book)
 ----------------------------------------------------------------------
 Test version 0.8.4, needs cleaning
----------------------------------------------------------------------
+----------------------------------------------------------------------
+La sélection de certaines étiquettes semble bien plus aisé que prévu... 
+Les étiquettes sont distribuées entre 4 couleurs différentes qui chacune rassemble les étiquettes
+selon leur domaine: le genre d'écrit, le thème de l'écrit, le lieu de l'écrit ou de son auteur et
+le temps relatif au récit ou a celui de l'auteur ou de l'édition.
+La taille de la fonte est proportionnelle à la pertinence de l'étiquette.
+A CONDITION de sélectionner d'abord une ou plusieurs couleurs avant de sélectionner le nombre de
+niveau de pertinence, il n'y a pas besoin de dessiner une nouvelle interface.
+La conséquence est que le nombre d'étiquettes ne peut pas être prédit et que la pertinence maximale
+associée avec un ouvrage peut être différente pour une autre livre. 
+----------------------------------------------------------------------

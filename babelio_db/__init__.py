@@ -196,11 +196,12 @@ class Babelio(Source):
 
     config_help_message = '<p>'+_(" Babelio est un réseau social dédié aux livres et aux lecteurs. Il permet de créer"
                                   " et d’organiser sa bibliothèque en ligne, d’obtenir des informations sur des oeuvres,"
-                                  " de partager et d’échanger ses goûts et impressions littéraires avec d’autres lecteurs.<br><br>"
+                                  " de partager et d’échanger ses goûts et impressions littéraires avec d’autres lecteurs.<br>"
                                   " Il est à noter que certaines images de couvertures ne sont PAS localisées sur le site"
-                                  " même de Babelio... des temps extrèmement longs peuvent en être engendré.<br><br>"
-                                  " Notez qu'une requête qui génère plus de 12 resultats se verra tronquée à 12..."
-                                  " Il est possible de modifier ce comportement, mais au risque d'être banni de Babelio..."
+                                  " même de Babelio... des temps extrêmement longs peuvent en être engendré.<br><br>"
+                                  " J'ai décidé d'éviter de charger plus d'une page de recherche pour essayer d'éviter le"
+                                  " bannissement. Cela signifie trouver un maximum de 10 livres similaires en comptant sur Babelio"
+                                  " pour trier les références les plus pertinentes.<br>"
                                   " Dans cette même veine, utiliser en même temps les plugins babelio et babelio_db est un moyen"
                                   " certain de provoquer trop de requêtes vers babelio.com..."
                                   ' et donc être perçu comme une "DoS attack"...<br>'
@@ -228,7 +229,7 @@ class Babelio(Source):
                 'bool',
                 False,
                 _("Autorise les couvertures vues sur Babelio"),
-                _("Cochez cette case pour authoriser les couvertures vues sur Babelio (peut être long). "
+                _("Cochez cette case pour autoriser les couvertures vues sur Babelio (peut être long). "
                   "Attention, calibre rapporte: Impossible de trouver une couverture pour <titre>... "
                   "Ce n'est pas une erreur.")
         ),
@@ -243,8 +244,46 @@ class Babelio(Source):
                 'Detailled_Rating_wanted',
                 'bool',
                 False,
-                _('Autorise un rapport plus detaillé de la notation, si le commentaire étendu est sélectionné.'),
+                _('Autorise un rapport plus détaillé de la notation, si le commentaire étendu est sélectionné.'),
                 _('Cochez cette case pour autoriser le titre "Popularité" dans les commentaires')
+        ),
+        Option(
+                'tag_genre_wanted',
+                'bool',
+                True,
+                _('Autorise la récupération des étiquettes de genre (roman, polar, poésie) '),
+                _("Cochez cette case pour obtenir les étiquettes rouges foncés qui désignent le genre ou la forme de l'ouvrage.")
+        ),
+        Option(
+                'tag_theme_wanted',
+                'bool',
+                True,
+                _('Autorise la récupération des étiquettes thématiques (enfance, légendes arthuriennes, mafia etc.)'),
+                _("Cochez cette case pour obtenir les étiquettes beiges clairs qui désignent le thème ou le sujet de l'ouvrage.")
+        ),
+        Option(
+                'tag_localisation_wanted',
+                'bool',
+                True,
+                _('Autorise la récupération des étiquettes de lieu (ou? : auteur britannique, Canada etc.)'),
+                _("Cochez cette case pour obtenir les étiquettes oranges relative à l'origine géographique, le pays.")
+        ),
+        Option(
+                'tag_quand_wanted',
+                'bool',
+                True,
+                _('Autorise la récupération des étiquettes relatives à une période (Quand? : 19ème siècle, médiéval) '),
+                _("Cochez cette case pour obtenir les étiquettes vert lichen relatives à une période.")
+        ),
+        Option(
+                'tag_combien_wanted',
+                'number',
+                3,
+               _("Pertinence des étiquettes, de 1 à 12, défaut : 3"),
+               _(" La pertinence des étiquettes détermine leur taille.<br>"
+                 " Je trie toutes les étiquettes sélectionnées ci-dessus par pertinence,<br>"
+                 " le nombre introduit détermine combien de niveaux de taille seront obtenus à partir du plus significatif<br>"
+                 " Introduire 3 peut donner plus, ou moins de 3 étiquettes, en effet plusieurs étiquettes peuvent exister par niveau, seulement 2 niveaux peuvent exister.")
         )
     )
 
