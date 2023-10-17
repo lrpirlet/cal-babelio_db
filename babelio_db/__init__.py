@@ -262,7 +262,7 @@ class Babelio(Source):
                 _("Cochez cette case pour obtenir les étiquettes beiges clairs qui désignent le thème ou le sujet de l'ouvrage.")
         ),
         Option(
-                'tag_localisation_wanted',
+                'tag_lieu_wanted',
                 'bool',
                 True,
                 _('Autorise la récupération des étiquettes de lieu (ou? : auteur britannique, Canada etc.)'),
@@ -276,24 +276,24 @@ class Babelio(Source):
                 _("Cochez cette case pour obtenir les étiquettes vert lichen relatives à une période.")
         ),
         Option(
-                'tag_combien_wanted',
+                'tag_top_combien_wanted',
                 'number',
-                3,
-               _("Pertinence des étiquettes, de 1 à 12, défaut : 3"),
+                2,
+               _("Pertinence des étiquettes, de 1 à 12, défaut : 2"),
                _(" La pertinence des étiquettes détermine leur taille.<br>"
                  " Je trie toutes les étiquettes sélectionnées ci-dessus par pertinence,<br>"
                  " le nombre introduit détermine combien de niveaux de taille seront obtenus à partir du plus significatif<br>"
-                 " Introduire 3 peut donner plus, ou moins de 3 étiquettes, en effet plusieurs étiquettes peuvent exister par niveau, seulement 2 niveaux peuvent exister.")
+                 " Introduire 3 peut donner plus, ou moins, de 3 étiquettes, en effet plusieurs étiquettes peuvent exister par niveau, seulement 2 niveaux peuvent exister.")
         )
     )
 
     @property
     def dbg_lvl(self):
-        x = getattr(self, 'dl', None)
+        x = getattr(self, 'wdl', None)
         if x is not None:
             return x
-        dl = self.prefs.get('debug_level', False)
-        return dl
+        wdl = self.prefs.get('debug_level', False)
+        return wdl
 
     @property
     def with_cover(self):
@@ -318,6 +318,46 @@ class Babelio(Source):
             return x
         wrcomment = self.prefs.get('Detailled_Rating_wanted', False)
         return wrcomment
+
+    @property
+    def with_tag_genre(self):
+        x = getattr(self, 'wgtag', None)
+        if x is not None:
+            return x
+        wgtag = self.prefs.get('tag_genre_wanted', False)
+        return wgtag
+
+    @property
+    def with_tag_theme(self):
+        x = getattr(self, 'wttag', None)
+        if x is not None:
+            return x
+        wttag = self.prefs.get('tag_theme_wanted', False)
+        return wttag
+
+    @property
+    def with_tag_lieu(self):
+        x = getattr(self, 'wltag', None)
+        if x is not None:
+            return x
+        wltag = self.prefs.get('tag_lieu_wanted', False)
+        return wltag
+
+    @property
+    def with_tag_quand(self):
+        x = getattr(self, 'wqtag', None)
+        if x is not None:
+            return x
+        wqtag = self.prefs.get('tag_quand_wanted', False)
+        return wqtag
+
+    @property
+    def tag_top_combien(self):
+        x = getattr(self, 'wttcombien', None)
+        if x is not None:
+            return x
+        wttcombien = self.prefs.get('tag_top_combien_wanted', False)
+        return wttcombien
 
     def get_book_url(self, identifiers):
         '''
@@ -405,6 +445,11 @@ class Babelio(Source):
         log.info('self.with_cover           : ', self.with_cover)
         log.info('self.with_pretty_comments : ', self.with_pretty_comments)
         log.info('self.with_detailed_rating : ', self.with_detailed_rating)
+        log.info('self.with_tag_genre       : ', self.with_tag_genre)
+        log.info('self.with_tag_theme       : ', self.with_tag_theme)
+        log.info('self.with_tag_lieu        : ', self.with_tag_lieu)
+        log.info('self.with_tag_quand       : ', self.with_tag_quand)
+        log.info('self.tag_top_combien      : ', self.tag_top_combien)
         log.info('\nIn identify(self, log, result_queue, abort, title=.., authors=.., identifiers=.., timeout=30)\n')
 
         debug=self.dbg_lvl & 1

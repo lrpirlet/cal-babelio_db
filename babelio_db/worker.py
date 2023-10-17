@@ -37,6 +37,13 @@ class Worker(Thread):
         self.with_cover = self.plugin.with_cover
         self.with_pretty_comments = self.plugin.with_pretty_comments
         self.with_detailed_rating = self.plugin.with_detailed_rating
+        self.with_tag_genre = self.plugin.with_tag_genre
+        self.with_tag_theme = self.plugin.with_tag_theme
+        self.with_tag_lieu = self.plugin.with_tag_lieu
+        self.with_tag_quand = self.plugin.with_tag_quand
+        self.tag_top_combien = self.plugin.tag_top_combien
+
+
         self.bbl_id = None
         self.who = "[worker "+str(relevance)+"]"
         self.debug=self.dbg_lvl & 2
@@ -52,6 +59,11 @@ class Worker(Thread):
             self.log.info(self.who,"self.with_cover           : ", self.with_cover)
             self.log.info(self.who,"self.with_pretty_comments : ", self.with_pretty_comments)
             self.log.info(self.who,"self.with_detailed_rating : ", self.with_detailed_rating)
+            self.log.info(self.who,"self.with_tag_genre       : ", self.with_tag_genre)
+            self.log.info(self.who,"self.with_tag_theme       : ", self.with_tag_theme)
+            self.log.info(self.who,"self.with_tag_lieu        : ", self.with_tag_lieu)
+            self.log.info(self.who,"self.with_tag_quand       : ", self.with_tag_quand)
+            self.log.info(self.who,"self.tag_top_combien      : ", self.tag_top_combien)
 
     def run(self):
         '''
@@ -474,18 +486,38 @@ class Worker(Thread):
 
     def parse_tags(self, soup):
         '''
-        get tags from html part
+        get tags from html part, selecting first the category(ies) desired
+        before selecting the targeted relevance.
         '''
         self.log.info("\n"+self.who,"in parse_tags(self, soup)")
 
       # if soup.select_one('.tags') fails it will produce an exception
+        bbl_tags=[]
+        tmp_bbl_tg = {}
+        tc_lst = []
+
+        if self.with_tag_genre: tc_lst.append("tc_0")
+        if self.with_tag_theme: tc_lst.append("tc_1")
+        if self.with_tag_lieu:  tc_lst.append("tc_2")
+        if self.with_tag_quand: tc_lst.append("tc_3")
+
         tag_soup=soup.select_one('.tags')
       # if self.debug: self.log.info(self.who,"tag_soup prettyfied :\n",tag_soup.prettify()) # hide_it
-        tag_soup = soup.select_one('.tags').select('a')
-        bbl_tags=[]
-        for i in range(len(tag_soup)):
-            tmp_tg = tag_soup[i].text.strip()
-            bbl_tags.append(tmp_tg)
+        for i in range(len(tc_lst)):
+            tag_soup = soup.select_one('.tags').select('a')
+            for j in range(len(tag_soup)):
+                if tc_lst[i] in tag_soup[j]['class']:
+                    tk,tv = tag_soup[j]['class'][0], tag_soup[j].text.strip()
+                    if tmp_bbl_tg.get(tk):
+                        tv_lst = tmp_bbl_tg.get(tk)			# get tag value
+                        tv_lst.append(tv)					# update tag value list with tag value
+                        tmp_tg = {tk : tv_lst}				# update dictionary
+                    else:
+                        tmp_tg = {tk : [tv]}				# create dicionary key and associate tag value list
+                    tmp_bbl_tg.update(tmp_tg) 				# update tmp_bbl_tg dictionary
+        tmp_bbl_tg = sorted(tmp_bbl_tg.items())[-self.tag_top_combien:]				# sort tmp_bbl_tg over the keys getting only self.tag_top_combien
+        for i in range(len(tmp_bbl_tg)):
+            bbl_tags.extend(tmp_bbl_tg[i][1])
 
         bbl_tags = list(map(fixcase, bbl_tags))
 
