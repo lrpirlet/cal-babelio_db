@@ -19,12 +19,12 @@
 <p>So I wrote a configuration for this plugin.</p>
 <figure>
 <figcaption>babelio source configuration</figcaption>
-<img src="./babelio%20setup.png" alt="babelio setup" title="babelio setup"/>
+<img src="./babelio_db%20setup.png" alt="babelio_db setup" title="babelio_db setup"/>
 </figure>
 <p>I kept the function to avoid searching for a cover. In fact, because the cover image is sometimes on amazon, and because amazon isn't really responsive to non-human access, this feature turns out in some cases to be really useful. You go from waiting ten seconds or so to a handful of seconds. It's very appreciable when dealing with a series of titles.</p>
-<p>I have implemented several levels of verbosity, by default level 3 will give the progress in the log. In particular, it could be that the plugin does not provide the editor, in which case a quick look at the log will show whether it is a plugin bug or a lack of babelio...</p>
-<p>Finally, an important use of the template for me is to create a catalogue. In this catalogue, I like to be able to follow a link to the babelio site. This allows me to get more information about the author, his bibliography, the readers' opinions... So I create a reference that finds its place in the comments, and I separate it from the summary coming from the site by a title.</p>
-
+<p>I've implemented several levels of verbosity, by default level 3 will show the progress in the log. In particular, the plugin may not provide the editor, in which case a quick glance at the log will show whether it's a plugin bug or a missing babelio...<br>In the event of a bug, raising the verbosity to 15 will give me a better idea of where the problem lies.</p>
+<p>An important use of the template for me is to create a catalogue. In this catalogue, I like to be able to follow a link to the babelio site. This allows me to get more information about the author, his bibliography, the readers' opinions... So I create a reference that finds its place in the comments, and I separate it from the summary coming from the site by a title.<br>In the same vein, one can add the note associated with the book under its title.</p>
+<p>Last but not least, Babelio.com presents a compilation of the various tags suggested by readers. They are sorted by genre, theme, link and period. Font size is proportional to relevance. You can have several tags with the same relevance, but the greatest relevance of each tag type is not the maximum font size. I've chosen to select the number of levels for each label type, starting with the most important. Thus, entering 0 deletes the labels associated with that type, while entering 2 may result in 1 or more than 2 labels, depending on the number of labels below the 2 highest levels.</p>
 <h2>In the event of a bug</h2>
 <p>The best way to report a problem is to push the verbosity to the maximum (15), reproduce the problem and copy the log. A short description of the bug with the log will greatly help to understand and fix both the plugin and its documentation. Indeed, reporting that the title is not decoded correctly when multiple plugins are selected is probably the normal operation of calibre, so it should be documented.</p>
 <h3></h3></body>

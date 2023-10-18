@@ -178,7 +178,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (0, 8, 4)
+    version                 = (0, 8, 5)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -575,7 +575,7 @@ class Babelio(Source):
             log.info("orig_authors  : ", orig_authors)
 
         unsrt_match, matches = [], []
-        # only use the first page found by babelio.com, that is a maximum of 10 books
+      # only use the first page found by babelio.com, that is a maximum of 10 books
 
         x = soup.select(".cr_meta")
         if len(x):
@@ -602,40 +602,7 @@ class Babelio(Source):
                 unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+max_Ratio)))         # compute ratio comparing titre presented by babelio to requested title
 
                 if debug:
-                    log.info('titre : {},    auteur : {},  sous_url : {}'.format(titre, auteur, sous_url))
-
-        # count=0
-        # while count < 5 :                                                       # loop over 6 first pages of search result (max 6 request @ 1.6 sec)
-        #     try:
-        #         x=soup.select_one('div.mes_livres').select_one('tbody').select('tr')
-        #     except:
-        #         break
-        #     if len(x):                                                          # loop over all html addresses tied with titre_v2 (all book ref)
-        #         for i in range(len(x)):                                         # !!CAUTION!! each page may have up to 10 books
-        #             y = x[i].select_one('td.titre_livre > a.titre_v2')
-        #             sous_url = y["href"].strip()
-        #             titre = y.text.strip()
-        #             ttl=ret_clean_text(log, self.dbg_lvl, titre)
-        #             orig_ttl=ret_clean_text(log, self.dbg_lvl, orig_title)
-        #             y = x[i].select_one('td.auteur > a.auteur_v2')
-        #             auteur=y.text.strip()
-        #             aut=ret_clean_text(log, self.dbg_lvl, auteur)
-        #             maxi=0
-        #             if orig_authors:
-        #                 for i in range(len(orig_authors)):
-        #                     orig_authors[i] = ret_clean_text(log, self.dbg_lvl, orig_authors[i])
-        #                     maxi = max(maxi, (SM(None,aut,orig_authors[i]).ratio()))        # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
-        #             else:
-        #                 orig_authors=[]
-        #             unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi)))    # compute ratio comparing titre presented by babelio to requested title
-        #             # unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+maxi),titre,orig_title,auteur,orig_authors))   # may be long
-        #     if not soup.select_one('.icon-next'):                               #
-        #         break                                                           # exit loop if no more next page
-        #     count = count + 1                                                   #
-        #     nxtpg = Babelio.BASE_URL + soup.select_one('.icon-next')["href"]    # get next page adress
-        #     if debug: log.info("next page : ",nxtpg)                            #
-        #     soup=ret_soup(log, self.dbg_lvl, br, nxtpg)[0]               # get new soup content and loop again, request MUST take at least 1 second
-        #     time.sleep(0.5)                                                     # but wait a while so as not to hit www.babelio.com too hard
+                    log.info(f'titre : {titre},    auteur : {auteur},  sous_url : {sous_url}')
 
         srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors
 
@@ -643,7 +610,6 @@ class Babelio(Source):
         # if debug:                                                                          # hide_it # may be long
         #     for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])      # hide_it # may be long
 
-        # srt_match = srt_match[:12]                                              # limit to 12 requests (max 12 requests @ #workers sec)
         for i in range(len(srt_match)):
             matches.append(Babelio.BASE_URL + srt_match[i][0])
 

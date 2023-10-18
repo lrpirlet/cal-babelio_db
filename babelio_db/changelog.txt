@@ -289,8 +289,7 @@ Les étiquettes sont distribuées entre 4 couleurs différentes qui chacune rass
 selon leur domaine: le genre d'écrit, le thème de l'écrit, le lieu de l'écrit ou de son auteur et
 le temps relatif au récit ou a celui de l'auteur ou de l'édition.
 La taille de la fonte est proportionnelle à la pertinence de l'étiquette.
-A CONDITION de sélectionner d'abord une ou plusieurs couleurs avant de sélectionner le nombre de
-niveau de pertinence, il n'y a pas besoin de dessiner une nouvelle interface.
-La conséquence est que le nombre d'étiquettes ne peut pas être prédit et que la pertinence maximale
-associée avec un ouvrage peut être différente pour une autre livre. 
+Donc, par couleur on peut sélectionner le nombre de niveaux en partant du plus significatif.
+Par défaut chaque couleur se voit attribuer 12 afin de collecter toutes les étiquettes, comme avant.
+A noter: calibre ne supprime jamais aucune étiquette, il faut les supprimer avant d'essayer moins. 
 ----------------------------------------------------------------------
