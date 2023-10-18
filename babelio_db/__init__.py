@@ -248,42 +248,44 @@ class Babelio(Source):
                 _('Cochez cette case pour autoriser le titre "Popularité" dans les commentaires')
         ),
         Option(
-                'tag_genre_wanted',
-                'bool',
-                True,
-                _('Autorise la récupération des étiquettes de genre (roman, polar, poésie) '),
-                _("Cochez cette case pour obtenir les étiquettes rouges foncés qui désignent le genre ou la forme de l'ouvrage.")
-        ),
-        Option(
-                'tag_theme_wanted',
-                'bool',
-                True,
-                _('Autorise la récupération des étiquettes thématiques (enfance, légendes arthuriennes, mafia etc.)'),
-                _("Cochez cette case pour obtenir les étiquettes beiges clairs qui désignent le thème ou le sujet de l'ouvrage.")
-        ),
-        Option(
-                'tag_lieu_wanted',
-                'bool',
-                True,
-                _('Autorise la récupération des étiquettes de lieu (ou? : auteur britannique, Canada etc.)'),
-                _("Cochez cette case pour obtenir les étiquettes oranges relative à l'origine géographique, le pays.")
-        ),
-        Option(
-                'tag_quand_wanted',
-                'bool',
-                True,
-                _('Autorise la récupération des étiquettes relatives à une période (Quand? : 19ème siècle, médiéval) '),
-                _("Cochez cette case pour obtenir les étiquettes vert lichen relatives à une période.")
-        ),
-        Option(
-                'tag_top_combien_wanted',
+                'tag_genre_combien',
                 'number',
-                2,
-               _("Pertinence des étiquettes, de 1 à 12, défaut : 2"),
-               _(" La pertinence des étiquettes détermine leur taille.<br>"
-                 " Je trie toutes les étiquettes sélectionnées ci-dessus par pertinence,<br>"
-                 " le nombre introduit détermine combien de niveaux de taille seront obtenus à partir du plus significatif<br>"
-                 " Introduire 3 peut donner plus, ou moins, de 3 étiquettes, en effet plusieurs étiquettes peuvent exister par niveau, seulement 2 niveaux peuvent exister.")
+                12,
+                _('Nombre de niveaux de pertinance des étiquettes de genre (roman, polar, poésie) '),
+                _("La pertinence des étiquettes rouges foncés qui désignent le genre ou la forme de l'ouvrage détermine leur taille. "
+                 "Les étiquettes sont triées par pertinence, plusieurs etiquettes peuvent avoir la même pertinence. "
+                 "Le nombre introduit détermine combien de niveaux de pertinence seront obtenus à partir du niveau le plus élevé. "
+                 "Ainsi la valeur 0 ne donne aucune etiquettes, 2 donne toutes les etiquettes des 2 plus haut niveaux.")
+        ),
+        Option(
+                'tag_theme_combien',
+                'number',
+                12,
+                _('Nombre de niveaux de pertinance des étiquettes thématiques (enfance, légendes arthuriennes, mafia etc.)'),
+                _("La pertinence des étiquettes beiges clairs qui désignent le thème ou le sujet de l'ouvrage détermine leur taille. "
+                 "Les étiquettes sont triées par pertinence, plusieurs etiquettes peuvent avoir la même pertinence. "
+                 "Le nombre introduit détermine combien de niveaux de pertinence seront obtenus à partir du niveau le plus élevé. "
+                 "Ainsi la valeur 0 ne donne aucune etiquettes, 2 donne toutes les etiquettes des 2 plus haut niveaux.")
+        ),
+        Option(
+                'tag_lieu_combien',
+                'number',
+                12,
+                _('Nombre de niveaux de pertinance des étiquettes de lieu (ou? : auteur britannique, Canada etc.)'),
+                _("La pertinence des étiquettes oranges relative à l'origine géographique, le pays détermine leur taille. "
+                 "Les étiquettes sont triées par pertinence, plusieurs etiquettes peuvent avoir la même pertinence. "
+                 "Le nombre introduit détermine combien de niveaux de pertinence seront obtenus à partir du niveau le plus élevé. "
+                 "Ainsi la valeur 0 ne donne aucune etiquettes, 2 donne toutes les etiquettes des 2 plus haut niveaux.")
+        ),
+        Option(
+                'tag_quand_combien',
+                'number',
+                12,
+                _('Nombre de niveaux de pertinance des étiquettes relatives à une période (Quand? : 19ème siècle, médiéval) '),
+                _("La pertinence des étiquettes vert lichen relatives à une période détermine leur taille. "
+                 "Les étiquettes sont triées par pertinence, plusieurs etiquettes peuvent avoir la même pertinence. "
+                 "Le nombre introduit détermine combien de niveaux de pertinence seront obtenus à partir du niveau le plus élevé. "
+                 "Ainsi la valeur 0 ne donne aucune etiquettes, 2 donne toutes les etiquettes des 2 plus haut niveaux.")
         )
     )
 
@@ -320,44 +322,36 @@ class Babelio(Source):
         return wrcomment
 
     @property
-    def with_tag_genre(self):
+    def tag_genre(self):
         x = getattr(self, 'wgtag', None)
         if x is not None:
             return x
-        wgtag = self.prefs.get('tag_genre_wanted', False)
+        wgtag = self.prefs.get('tag_genre_combien', False)
         return wgtag
 
     @property
-    def with_tag_theme(self):
+    def tag_theme(self):
         x = getattr(self, 'wttag', None)
         if x is not None:
             return x
-        wttag = self.prefs.get('tag_theme_wanted', False)
+        wttag = self.prefs.get('tag_theme_combien', False)
         return wttag
 
     @property
-    def with_tag_lieu(self):
+    def tag_lieu(self):
         x = getattr(self, 'wltag', None)
         if x is not None:
             return x
-        wltag = self.prefs.get('tag_lieu_wanted', False)
+        wltag = self.prefs.get('tag_lieu_combien', False)
         return wltag
 
     @property
-    def with_tag_quand(self):
+    def tag_quand(self):
         x = getattr(self, 'wqtag', None)
         if x is not None:
             return x
-        wqtag = self.prefs.get('tag_quand_wanted', False)
+        wqtag = self.prefs.get('tag_quand_combien', False)
         return wqtag
-
-    @property
-    def tag_top_combien(self):
-        x = getattr(self, 'wttcombien', None)
-        if x is not None:
-            return x
-        wttcombien = self.prefs.get('tag_top_combien_wanted', False)
-        return wttcombien
 
     def get_book_url(self, identifiers):
         '''
@@ -445,11 +439,10 @@ class Babelio(Source):
         log.info('self.with_cover           : ', self.with_cover)
         log.info('self.with_pretty_comments : ', self.with_pretty_comments)
         log.info('self.with_detailed_rating : ', self.with_detailed_rating)
-        log.info('self.with_tag_genre       : ', self.with_tag_genre)
-        log.info('self.with_tag_theme       : ', self.with_tag_theme)
-        log.info('self.with_tag_lieu        : ', self.with_tag_lieu)
-        log.info('self.with_tag_quand       : ', self.with_tag_quand)
-        log.info('self.tag_top_combien      : ', self.tag_top_combien)
+        log.info('self.tag_genre            : ', self.tag_genre)
+        log.info('self.tag_theme            : ', self.tag_theme)
+        log.info('self.tag_lieu             : ', self.tag_lieu)
+        log.info('self.tag_quand            : ', self.tag_quand)
         log.info('\nIn identify(self, log, result_queue, abort, title=.., authors=.., identifiers=.., timeout=30)\n')
 
         debug=self.dbg_lvl & 1
