@@ -178,7 +178,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (0, 8, 5)
+    version                 = (0, 8, 6)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -575,43 +575,59 @@ class Babelio(Source):
             log.info("orig_authors  : ", orig_authors)
 
         unsrt_match, matches = [], []
+        lwr_serie = ""
+        x=None
       # only use the first page found by babelio.com, that is a maximum of 10 books
+      # first lets get possible serie name in lower string (we do not want lose a possible ":")
+        x = soup.select_one(".resultats_haut")
+        if x:
+            # if debug: log.info('display serie found\n',x.prettify())                        # hide it
+            lwr_serie = x.text.strip().lower()
+            # if debug: log.info(f"x.text.strip().lower() : {lwr_serie}")                     # hide it
 
         x = soup.select(".cr_meta")
         if len(x):
             for i in range(len(x)):
-                if debug: log.info('display each item found\n',x[i].prettify())             # hide it
+                # if debug: log.info('display each item found\n',x[i].prettify())             # hide it
 
                 titre = (x[i].select_one(".titre1")).text.strip()
+              # first delete serie info in titre if present
+                if lwr_serie:
+                  # get rid of serie name (assume serie name in first position with last char always "," and first ":" isolate title for serial name)
+                  # then split on first occurence of ":" and get second part of the string, that is the title
+                    titre = titre.lower().replace(lwr_serie+",","").split(":",1)[1]
+                    log.info(f"titre.lower().replace(lwr_serie+',','') ; {titre}")
+
                 ttl = ret_clean_text(log, self.dbg_lvl, titre)
-
                 orig_ttl = ret_clean_text(log, self.dbg_lvl, orig_title)
-
                 sous_url = (x[i].select_one(".titre1"))["href"].strip()
-
                 auteur = (x[i].select_one(".libelle")).text.strip()
                 aut = ret_clean_text(log, self.dbg_lvl, auteur)
+
                 max_Ratio = 0
                 if orig_authors:
                     for i in range(len(orig_authors)):
                         orig_authors[i] = ret_clean_text(log, self.dbg_lvl, orig_authors[i])
-                        max_Ratio = max(max_Ratio, (SM(None,aut,orig_authors[i]).ratio()))        # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
-                else:
-                    orig_authors=[]
+                        aut_ratio = SM(None,aut,orig_authors[i]).ratio()        # compute ratio comparing auteur presented by babelio to each item of requested authors
+                        max_Ratio = max(max_Ratio, aut_ratio)                   # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
 
-                unsrt_match.append((sous_url,(SM(None,ttl, orig_ttl).ratio()+max_Ratio)))         # compute ratio comparing titre presented by babelio to requested title
+                ttl_ratio = SM(None,ttl, orig_ttl).ratio()                      # compute ratio comparing titre presented by babelio to requested title
+                unsrt_match.append((sous_url, ttl_ratio + max_Ratio))           # compute combined author and title ratio (idealy should be 2)
 
-                if debug:
-                    log.info(f'titre : {titre},    auteur : {auteur},  sous_url : {sous_url}')
+                if debug: log.info(f'titre, ratio : {titre}, {ttl_ratio},    auteur, ratio : {auteur}, {aut_ratio},  sous_url : {sous_url}')
 
         srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors
 
         log.info('nombre de références trouvées dans babelio', len(srt_match))
-        # if debug:                                                                          # hide_it # may be long
-        #     for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])      # hide_it # may be long
+        if debug:                                                                           # hide_it # may be long
+            for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])       # hide_it # may be long
 
         for i in range(len(srt_match)):
             matches.append(Babelio.BASE_URL + srt_match[i][0])
+          # if ratio = 2 (exact match on both author and title) then present only this book for this author
+            if srt_match[i][1] == 2:
+                log.info("YES, perfect match on both author and title, take only one.")
+                break
 
         if not matches:
             if debug:
