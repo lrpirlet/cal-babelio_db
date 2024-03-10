@@ -20,6 +20,8 @@ result = SM(None, s1, s2).ratio()
 result is 0.9112903225806451... anything above .6 may be considered similar
 '''
 
+import tempfile, os, contextlib
+
 # the following makes some calibre code available to my code
 from calibre.ebooks.metadata.sources.base import (Source, Option)
 from calibre.ebooks.metadata import check_isbn
@@ -28,6 +30,23 @@ from calibre.utils.icu import lower
 from calibre.utils.localization import get_udc
 
 TIME_INTERVAL = 1.2      # this is the minimum interval between 2 access to the web (with decorator on ret_soup())
+LOCK_FILE = os.path.join(tempfile.gettempdir(), 'Babelio_dbpleaseabortworker.tmp')
+LOCK_TIME = datetime.timedelta(hours = 23)        # use "minutes = 10"
+
+      # The kludge below (lockfile in the temp directory) is an attempt to get a message from an instance of the worker.
+      # If a worker crash because returned url in NOT the requested url then I want to stop poking babelio for 23 hours.
+      # The crashing worker will create a temporary lockfile named Babelio_dbpleaseabortworker.tmp,
+      # ret_soup() will monitor the presence of this lockfile and disalow any further access to babelio.
+      # Now, this works well because of the class Un_par_un(): all requests are serialised with TIME_INTERVAL in between.
+      #
+      # before doing anything, delete the worker lockfile if it exist and was last modified 23 hours ago
+      # the lockfile will be created as soon as a wrong returned url shows up,
+      # preventing overwrite of calibre with wrong data AND protecting Babelio site from any further access
+      #
+
+with contextlib.suppress(FileNotFoundError):
+    if datetime.datetime.now() - datetime.datetime.fromtimestamp(os.path.getmtime(LOCK_FILE)) > LOCK_TIME :
+        os.remove(LOCK_FILE)
 
 class Un_par_un(object):
     '''
@@ -70,6 +89,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who=''):
     '''
     this is an attempt to keep going when the connection to the site fails for no (understandable) reason
     "return (sr, sr.geturl())" with sr.geturl() the true url address of sr (the content).
+    this will issue an exception on url_vrai is not equal to url, on response = 500
     '''
     debug=dbg_lvl & 4
     if debug:
@@ -79,10 +99,30 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who=''):
     while tries > 1:
         try:
             sr = br.open(url,data=rkt,timeout=30)
-            log.info(who,"(urlopen_with_retry) sr.getcode()  : ", sr.getcode())
+            url_vrai, info, code = sr.geturl(), sr.info(), sr.getcode()
+            log.info(who,"(urlopen_with_retry) sr.getcode()  : ", code)
+
+          # compare expected url with returned url, kill the worker if different to avoid corrupting calibre
+          # the exception is the cleanest way to kill the worker
+            if not url_vrai == url:
+            # if sr.geturl() == 'https://www.babelio.com/livres/Fabre-Photos-volees/615123':  # for debug purpose raise exception on equal
+                log.info("\n"+who,"returned url irs NOT requested url\n")
+                log.info(who,"requested url  : ", url)
+                log.info(who,"received url   : ", url_vrai)
+                log.info(who,"returned code : ", code)
+                log.info(who,"collected info :\n", info, '\n\n')
+
+              # The kludge...
+              # before crashing, let's create the file
+                log.info(who,"open ", LOCK_FILE)
+                log.info("\n"+who,"L'exception qui suit est voulue pour éviter de modifier Calibre\n")
+                open(LOCK_FILE,'a')
+                raise Exception(f'( requested url: {url}\nis not at all returned url: {sr.geturl()}')
+
             if debug:
-                log.info(who,"url_vrai      : ", sr.geturl())
-                log.info(who,"sr.info()     : ", sr.info())
+                log.info(who,"url_vrai      : ", url_vrai)
+                log.info(who,"sr.info()     : ", info)
+
             return (sr, sr.geturl())
         except urllib.error.URLError as e:
             if "500" in str(e):
@@ -178,7 +218,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (0, 8, 6)
+    version                 = (0, 8, 7)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])
@@ -435,6 +475,18 @@ class Babelio(Source):
         if no match is found with identifiers.
         '''
         log.info('-+-+-+-+-+-+-+-+-+-+ Entry point +-+-+-+-+-+-+-+-+-+-')
+
+      # The kludge...               #
+      # the lockfile exists, so we do NOT access babelio for LOCK_TIME
+        if os.path.exists(os.path.join(tempfile.gettempdir(),"Babelio_dbpleaseabortworker.tmp")):
+            log.info('Babelio_dbpleaseabortworker.tmp existe, on ne va pas plus loin...')                   # Babelio_dbpleaseabortworker.tmp exists, abort
+            fl_rsbl = (datetime.datetime.now() + LOCK_TIME).strftime('%d-%m-%Y à %H:%M:%S')                 # calculate when file can be deleted
+            log.info(f"redemarez calibre au plus tôt le {fl_rsbl}")                                         # tell when lockfile is erable
+            log.info('Grâce à ça, on évite de corrompre les données de calibre (ce qui est bon), et, ')     # BUT this avoid calibre corruption (that is good)')
+            log.info('AUSSI, on évite de noyer Babelio avec des requêtes inutiles (ce qui est très bon).')  # AND avoid swamping Babelio with useless request (that is very good)')
+            log.info("Kludge, peut-être, mais c'est vraiment le mieux que j'ai trouvé.\n")                  # Kludge, maybe, but this is the best I could think off')
+            return
+
         log.info('self.dgb_lvl              : ', self.dbg_lvl)
         log.info('self.with_cover           : ', self.with_cover)
         log.info('self.with_pretty_comments : ', self.with_pretty_comments)
@@ -583,7 +635,7 @@ class Babelio(Source):
         if x:
             # if debug: log.info('display serie found\n',x.prettify())                        # hide it
             lwr_serie = x.text.strip().lower()
-            # if debug: log.info(f"x.text.strip().lower() : {lwr_serie}")                     # hide it
+            # if debug: log.info(f"lwr_serie, that is x.text.strip().lower() : {lwr_serie}")                     # hide it
 
         x = soup.select(".cr_meta")
         if len(x):
@@ -609,18 +661,21 @@ class Babelio(Source):
                     for i in range(len(orig_authors)):
                         orig_authors[i] = ret_clean_text(log, self.dbg_lvl, orig_authors[i])
                         aut_ratio = SM(None,aut,orig_authors[i]).ratio()        # compute ratio comparing auteur presented by babelio to each item of requested authors
+                        if aut_ratio < 0.6 : aut_ratio = 0                      # diregard if not similar
                         max_Ratio = max(max_Ratio, aut_ratio)                   # compute and find max ratio comparing auteur presented by babelio to each item of requested authors
 
                 ttl_ratio = SM(None,ttl, orig_ttl).ratio()                      # compute ratio comparing titre presented by babelio to requested title
-                unsrt_match.append((sous_url, ttl_ratio + max_Ratio))           # compute combined author and title ratio (idealy should be 2)
+                if ttl_ratio < 0.6 : ttl_ratio = 0                              # diregard if not similar
+                if ttl_ratio + max_Ratio:                                       # if at least either title or author is similar (idealy should be 2)
+                    unsrt_match.append((sous_url, ttl_ratio + max_Ratio))       # take it as a match
 
-                if debug: log.info(f'titre, ratio : {titre}, {ttl_ratio},    auteur, ratio : {auteur}, {aut_ratio},  sous_url : {sous_url}')
+                if debug: log.info(f'titre, ratio : {titre}, {ttl_ratio},    auteur, ratio : {auteur}, {max_Ratio},  sous_url : {sous_url}')
 
         srt_match = sorted(unsrt_match, key= lambda x: x[1], reverse=True)      # find best matches over the orig_title and orig_authors
 
         log.info('nombre de références trouvées dans babelio', len(srt_match))
-        if debug:                                                                           # hide_it # may be long
-            for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])       # hide_it # may be long
+        # if debug:                                                                           # hide_it # may be long
+        #     for i in range(len(srt_match)): log.info('srt_match[i] : ', srt_match[i])       # hide_it # may be long
 
         for i in range(len(srt_match)):
             matches.append(Babelio.BASE_URL + srt_match[i][0])

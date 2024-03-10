@@ -284,12 +284,31 @@ books instead of 12 and rely on Babelio sorting the most significant book)
 ----------------------------------------------------------------------
 Test version 0.8.4, needs cleaning
 ----------------------------------------------------------------------
-La sélection de certaines étiquettes semble bien plus aisé que prévu... 
+La sélection de certaines étiquettes semble bien plus aisé que prévu...
 Les étiquettes sont distribuées entre 4 couleurs différentes qui chacune rassemble les étiquettes
 selon leur domaine: le genre d'écrit, le thème de l'écrit, le lieu de l'écrit ou de son auteur et
 le temps relatif au récit ou a celui de l'auteur ou de l'édition.
 La taille de la fonte est proportionnelle à la pertinence de l'étiquette.
 Donc, par couleur on peut sélectionner le nombre de niveaux en partant du plus significatif.
 Par défaut chaque couleur se voit attribuer 12 afin de collecter toutes les étiquettes, comme avant.
-A noter: calibre ne supprime jamais aucune étiquette, il faut les supprimer avant d'essayer moins. 
+A noter: calibre ne supprime jamais aucune étiquette, il faut les supprimer avant d'essayer moins.
 ----------------------------------------------------------------------
+version 0.8.5
+----------------------------------------------------------------------
+published
+----------------------------------------------------------------------
+version 0.8.6
+----------------------------------------------------------------------
+added an algorithm to stop further babelio access when a perfect match exist on title and author
+----------------------------------------------------------------------
+version 0.8.7
+----------------------------------------------------------------------
+added some kind of "protection" agains bad returns from babelio.com...
+If babelio returns from the search a "title-author" quite different from "requested title-author",
+then this will be dropped... In single metadata download, you will get NO proposal. In bulk metadata
+download it will be tagged  as failed... WAIT some then retry. Babelio will probably give a correct
+answer if you are forgoten.
+If babelio returns another book after the search, then an exception will be raised and teh plugin
+will NOT access babelio for 23 hours... HOPEFULLY, this will allow babelio to forget about you.
+OF COURSE it is possible to bypass the limits BUT I decided that the users of my plugin is intelligent
+enough to respect babelio.com so we continue to get the info.

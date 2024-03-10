@@ -71,7 +71,7 @@ class Worker(Thread):
         try:
             self.get_details()
         except:
-            self.log.exception('get_details failed for url: %r' % self.url)
+            self.log.exception('get_details failed for requested url: %r' % self.url)
 
     def get_details(self):
         '''
