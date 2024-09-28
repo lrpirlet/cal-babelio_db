@@ -305,7 +305,7 @@ class Worker(Thread):
 
           # get series infos from the series page
             try:
-                bbl_series, bbl_series_seq, bbl_series_url = self.parse_extended_serie(es_url, bbl_title)
+                bbl_series, bbl_series_seq, bbl_series_url = self.parse_extended_serie(es_url)
             except:
                 self.log.exception('Erreur en cherchant la serie dans : %r' % es_url)
 
@@ -319,12 +319,13 @@ class Worker(Thread):
 
         return (bbl_title, bbl_series, bbl_series_seq, bbl_series_url)
 
-    def parse_extended_serie(self, es_url, bbl_title):
+    def parse_extended_serie(self, es_url):
         '''
         a serie url exists then this get the page,
         extract the serie name and the url according to babelio
         '''
-        self.log.info("\n"+self.who,"parse_extended_serie(self, es_url, bbl_title : {})".format(bbl_title))
+        self.log.info("\n"+self.who,"parse_extended_serie(self, es_url)")
+        self.log.info(self.who,'bbl_id : ', self.bbl_id)
 
         bbl_series, bbl_series_seq ="", ""
 
@@ -340,11 +341,9 @@ class Worker(Thread):
         bbl_series = bbl_series.split("LRPCutHerePlease")[0].rstrip(" -").strip()
 
         for i in es_soup.select(".cr_droite"):
-#             self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
-            if bbl_title in i.get_text():
-                bbl_series_seq = i.get_text()
-                bbl_series_seq = bbl_series_seq.replace('Tome :','tome :')
-                bbl_series_seq = bbl_series_seq.split('tome :')[-1].strip()
+            # self.log.info(self.who,"es_soup.select('.cr_droite').get_text() :\n", i.get_text()) # may be long
+            if self.bbl_id in i.select_one('a')['href']:
+                bbl_series_seq = i.get_text().replace('Tome :','tome :').split('tome :')[-1].strip()
                 if bbl_series_seq.isnumeric():
                     bbl_series_seq = float(bbl_series_seq)
                 break
