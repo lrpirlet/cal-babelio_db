@@ -104,7 +104,7 @@ def urlopen_with_retry(log, dbg_lvl, br, url, rkt, who=''):
 
           # compare expected url with returned url, kill the worker if different to avoid corrupting calibre
           # the exception is the cleanest way to kill the worker
-            if not url_vrai == url:
+            if SM(None, url_vrai, url).ratio() < 0.7:
             # if sr.geturl() == 'https://www.babelio.com/livres/Fabre-Photos-volees/615123':  # for debug purpose raise exception on equal
                 log.info("\n"+who,"returned url irs NOT requested url\n")
                 log.info(who,"requested url  : ", url)
