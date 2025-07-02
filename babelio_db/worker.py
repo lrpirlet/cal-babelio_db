@@ -142,12 +142,12 @@ class Worker(Thread):
             # return
 
       # find isbn (EAN), publisher and publication date.. ok
-        bbl_isbn, bbl_pubdate, bbl_publisher = None, None, None
+        bbl_isbn, bbl_pubdate, bbl_publisher, audio_present_url = None, None, None, None
         try:
-            bbl_isbn, bbl_publisher, bbl_pubdate = self.parse_meta(soup)
+            bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url = self.parse_meta(soup)
 
         except:
-            self.log.exception('Erreur en cherchant ISBN, éditeur et date de publication dans : %r' % self.url)
+            self.log.exception('Erreur en cherchant ISBN, éditeur, date de publication et presence livre audio dans : %r' % self.url)
 
         if self.debugt:
             self.log.info(self.who,"Temps après parse_meta() ... : ", time.time() - start)
@@ -213,6 +213,10 @@ class Worker(Thread):
             bbl_reference = BS('<div><p>Référence: <a href="' + self.url + '">' + self.url + '</a></p></div>',"lxml")
           # on commence par la référence qui sera toujours presente dans le commentaire si with_pretty_comments est True
             bbl_comments = bbl_reference
+          # si un audio existe, on crèe la ligne et on ajoute la reference
+            if audio_present_url:
+                audio_present_ref = BS('<div><p>Existe en édition audio: <a href="' + audio_present_url + '">' + audio_present_url + '</a></p></div>',"lxml")
+                bbl_comments.append(audio_present_ref)
           # si part d'une série, crèe et ajoute la référence à la série.
             if bbl_series_url:
                 bbl_serie_ref = BS('<div><p>Réf. de la série: <a href="' + bbl_series_url + '">' + bbl_series_url + '</a></p></div>',"lxml")
@@ -454,7 +458,7 @@ class Worker(Thread):
             if self.debug:
                 self.log.info(self.who,"bbl_publisher processed : ", bbl_publisher)
 
-        bbl_isbn, bbl_pubdate = None, None
+        bbl_isbn, bbl_pubdate, audio_present_url = None, None, None
         for mta in (meta_soup.stripped_strings):
             if "EAN" in mta:
                 tmp_sbn = mta.split()
@@ -473,12 +477,14 @@ class Worker(Thread):
                             bbl_pubdate = datetime.datetime.strptime(tmp_dt,"%j/%m/%Y")
                             if self.debug:
                                 self.log.info(self.who,"bbl_pubdate processed : ", bbl_pubdate)
+            elif "audio" in mta.lower():
+                audio_present_url = "https://www.babelio.com" + soup.select_one('.libelle').get('href')
 
         if self.debug:
-            self.log.info(self.who,'parse_meta() returns bbl_isbn, bbl_publisher, bbl_pubdate : '
-                            , bbl_isbn, bbl_publisher, bbl_pubdate)
+            self.log.info(self.who,'parse_meta() returns bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url : '
+                            , bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url)
 
-        return bbl_isbn, bbl_publisher, bbl_pubdate
+        return bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url, audio_present_url
 
     def parse_tags(self, soup):
         '''
