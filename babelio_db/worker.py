@@ -484,7 +484,7 @@ class Worker(Thread):
             self.log.info(self.who,'parse_meta() returns bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url : '
                             , bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url)
 
-        return bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url, audio_present_url
+        return bbl_isbn, bbl_publisher, bbl_pubdate, audio_present_url
 
     def parse_tags(self, soup):
         '''

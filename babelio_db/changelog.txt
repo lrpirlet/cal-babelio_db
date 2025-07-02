@@ -312,3 +312,8 @@ If babelio returns another book after the search, then an exception will be rais
 will NOT access babelio for 23 hours... HOPEFULLY, this will allow babelio to forget about you.
 OF COURSE it is possible to bypass the limits BUT I decided that the users of my plugin is intelligent
 enough to respect babelio.com so we continue to get the info.
+(only lighly tested)
+----------------------------------------------------------------------
+version 0.8.8
+----------------------------------------------------------------------
+added a ref to the audio-book if it exists... (only lighly tested)
