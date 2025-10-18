@@ -317,3 +317,9 @@ enough to respect babelio.com so we continue to get the info.
 version 0.8.8
 ----------------------------------------------------------------------
 added a ref to the audio-book if it exists... (only lighly tested)
+----------------------------------------------------------------------
+version 1.0.0
+----------------------------------------------------------------------
+corrected algorithm for parse_rating after Babelio.com change
+Added a date to the comment exposing the notes and vote number to explain possible difference when
+using babelio_notes pluging

@@ -224,7 +224,7 @@ class Worker(Thread):
           # cree la note détaillée
             if bbl_rating and bbl_rating_cnt and self.with_detailed_rating:
                 bbl_titre = BS('<div><hr><p style="font-weight: bold; font-size: 18px"> Popularité </p><hr></div>',"lxml")
-                bbl_ext_rating = BS('<div><p>Le nombre de cotations est <strong>' + str(bbl_rating_cnt) + '</strong>, avec une note moyenne de <strong>' + str(bbl_rating) + '</strong> sur 5</p></div>',"lxml")
+                bbl_ext_rating = BS('<div><p>A la date du '+ datetime.datetime.now().strftime("%d %b %Y") +', le nombre de cotations est <strong>' + str(bbl_rating_cnt) + '</strong>, avec une note moyenne de <strong>' + str(bbl_rating) + '</strong> sur 5</p></div>',"lxml")
                 bbl_comments.append(bbl_titre)      # ensuite le titre
                 bbl_comments.append(bbl_ext_rating)
           # cree un titre si du commentaire existe
@@ -384,17 +384,23 @@ class Worker(Thread):
 
     def parse_rating(self, soup):
         '''
-        get rating and number of votes from the url located in the html part
+        find and isolate rating and count of rating in the soup
+        formated as per https://schema.org/AggregateRating
+        returns rating as float and rating_cnt as int
+        will fails if float() or int() is applied to empty string
+        Will probably fails if babelio returns corrupted content
         '''
         self.log.info("\n"+self.who,"in parse_rating(self, soup)")
 
-      # if soup.select_one('span[itemprop="aggregateRating"]') fails, an exception will be raised
-        rating_soup = soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingValue"]')
-        # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify()) # hide_it
-        bbl_rating = float(rating_soup.text.strip())
-        rating_cnt_soup = soup.select_one('span[itemprop="aggregateRating"]').select_one('span[itemprop="ratingCount"]')
-        # if self.debug: self.log.info(self.who,"rating_soup prettyfied :\n",rating_soup.prettify()) # hide_it
-        bbl_rating_cnt = int(rating_cnt_soup.text.strip())
+      # if .select_one() fails, an exception will be raised
+
+        rtng_soup = soup.select_one(".col.col-8")
+
+        rtng = rtng_soup.select_one('span[itemprop="ratingValue"]')
+        bbl_rating = float(rtng.text.strip().replace(',', '.'))
+
+        rtng_cnt = rtng_soup.select_one('span[itemprop="ratingCount"]')
+        bbl_rating_cnt = int(rtng_cnt.text.strip())
 
         if self.debug:
             self.log.info(self.who,"parse_rating() returns bbl_rating : {}, bbl_rating_cnt : {}".format(bbl_rating, bbl_rating_cnt))
