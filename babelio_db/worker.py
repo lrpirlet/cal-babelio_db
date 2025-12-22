@@ -236,7 +236,7 @@ class Worker(Thread):
 
         if bbl_comments:
 #            if self.debug: self.log.info(self.who,'bbl_comments prettyfied:\n', bbl_comments.prettify())     # visualise la construction html, may be long...
-            bbl_comments = bbl_comments.encode('ascii','xmlcharrefreplace')     # et on serialize le tout
+            bbl_comments = bbl_comments.encode('ascii')     # et on serialize le tout
         else:
             self.log.info('Pas de résumé pour ce livre')
 
