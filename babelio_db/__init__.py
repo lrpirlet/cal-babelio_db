@@ -218,7 +218,7 @@ class Babelio(Source):
     name                    = 'Babelio_db'
     description             = _('Downloads metadata and covers from www.babelio.com')
     author                  = '2021, Louis Richard Pirlet using VdF work as a base'
-    version                 = (1, 0, 0)
+    version                 = (1, 1, 0)
     minimum_calibre_version = (6, 3, 0)
 
     capabilities = frozenset(['identify', 'cover'])

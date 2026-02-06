@@ -323,3 +323,8 @@ version 1.0.0
 corrected algorithm for parse_rating after Babelio.com change
 Added a date to the comment exposing the notes and vote number to explain possible difference when
 using babelio_notes pluging
+----------------------------------------------------------------------
+version 1.0.1
+----------------------------------------------------------------------
+changes in calibre from version 9 invalidated the plugin... changed the way to serialize the modified
+html data before sending it to calibre.
