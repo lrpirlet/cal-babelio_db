@@ -480,7 +480,7 @@ class Worker(Thread):
                         if i==0 and int(tmp_pbdt[i]) <= 31: continue
                         elif i==1 and int(tmp_pbdt[i]) <= 12 : continue
                         elif i==2 and int(tmp_pbdt[i]) > 1700:    # reject year -1, assumes no book in with date < 1700
-                            bbl_pubdate = datetime.datetime.strptime(tmp_dt,"%j/%m/%Y")
+                            bbl_pubdate = datetime.datetime.strptime(tmp_dt,"%d/%m/%Y")
                             if self.debug:
                                 self.log.info(self.who,"bbl_pubdate processed : ", bbl_pubdate)
             elif "audio" in mta.lower():
